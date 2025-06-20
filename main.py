@@ -1,33 +1,48 @@
-usuarios= {
-    "username": "juaneselmejor",
-    "password": "Holacomoesta"
+usuarios = {
+    "username": "jmarquezco@unal.edu.co",
+    "password": "juaneselmejor"
 }
 
 def iniciar_sesion():
- print("===Inicio de sesion===")
- print("Ingrese el Usuario: ")
- usuario = input(str)
- print("Ingrese la contraseña")
- contraseña = input(str)
+    print("\n=== INICIO DE SESIÓN ===")
+    usuario = input("Ingrese el Usuario: ")
+    contraseña = input("Ingrese la Contraseña: ")
 
- if usuario == "juaneselmejor" and contraseña == "Holacomoesta":
-     print("===Menu de opciones===")
-     print("1.")
-     print("2.")
-     print("3.")
-     print("4.")
-     print("5.")
-     print("6.")
-     print("Elija una de las opciones anteriores")
-     opcion = input(int)
-     match opcion:
-        case "1": print("Haz seleccionado la primera opcion")
-        case "2": print("Haz seleccionado la segunda opcion")
-        case "3": print("Haz seleccionado la tercera opcion")
-        case "4": print("Haz seleccionado la cuarta opcion")
-        case "5": print("Haz seleccionado la quinta opcion")
-        case "6": print("Haz seleccionado la sexta opcion")
-        case _ : print("Opcion incorrecta")
- else: print("Contraseña y/o usuario incorrecto ")
- 
+    if usuario == usuarios["username"] and contraseña == usuarios["password"]:
+        mostrar_menu_opciones()
+    else:
+        print("❌ Contraseña y/o usuario incorrecto, vuelve a intentar")
+        iniciar_sesion()  
+
+def mostrar_menu_opciones():
+    while True:
+        print("\n=== MENÚ DE OPCIONES ===")
+        print("1. Opción uno")
+        print("2. Opción dos")
+        print("3. Opción tres")
+        print("4. Opción cuatro")
+        print("5. Opción cinco")
+        print("6. Opción seis")
+        print("7. Cerrar sesión")
+        opcion = input("Elija una opción (1-7): ")
+
+        match opcion:
+            case "1":
+                print("✔ Has seleccionado la primera opción")
+            case "2":
+                print("✔ Has seleccionado la segunda opción")
+            case "3":
+                print("✔ Has seleccionado la tercera opción")
+            case "4":
+                print("✔ Has seleccionado la cuarta opción")
+            case "5":
+                print("✔ Has seleccionado la quinta opción")
+            case "6":
+                print("✔ Has seleccionado la sexta opción")
+            case "7":
+                print("👋 Cerrando sesión..."); iniciar_sesion()
+                break
+            case _:
+                print("❌ Opción incorrecta, intenta de nuevo")
+
 iniciar_sesion()
