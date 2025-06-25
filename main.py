@@ -94,7 +94,7 @@ def mostrar_menu_opciones():
         print("7. Cerrar sesión")
 
         opcion = input("Elija una opción (1-7): ")
-
+#dncanvanas
         match opcion:
             case "1":
                 menu_consulta(filtro)
