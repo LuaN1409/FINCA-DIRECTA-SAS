@@ -8,7 +8,7 @@ pedidos = os.path.join(os.path.dirname(__file__), "data", "pedidos_granja.xlsx")
 inventario = os.path.join(os.path.dirname(__file__), "data", "inventario.xlsx")
 inventario_actualizado = os.path.join(os.path.dirname(__file__), "data", "inventario_actualizado.xlsx")
 insumos_disponibles = os.path.join(os.path.dirname(__file__), "data", "insumos_disponibles.xlsx")
-
+demanda = os.path.join(os.path.dirname(__file__),"data", "demanda.xlsx")
 # ------------------ Credenciales de usuario ------------------ #
 usuarios = {
     "username": "j",
@@ -108,14 +108,13 @@ class FiltroPedidos:
             print("⚠ No hay datos para exportar.")
             return
 
-        nombre_archivo = input("💾 Nombre del archivo de salida (sin extensión): ")
-        ruta_archivo = os.path.join(os.path.dirname(__file__),"data", f"{nombre_archivo}.xlsx")
+       
         try:
             # Agrupar por tipo de producto y sumar cantidad
             resumen = self.df_filtrado.groupby('producto', as_index=False)['cantidad'].sum()
             resumen.columns = ['producto', 'total_cantidad']
-            resumen.to_excel(ruta_archivo, index=False)
-            print(f"✅ Resultados exportados a '{ruta_archivo}'")
+            resumen.to_excel(demanda, index=False)
+            print(f"✅ Resultados exportados a '{demanda}'")
         except Exception as e:
             print("❌ Error al exportar:", e)
 
