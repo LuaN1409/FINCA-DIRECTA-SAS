@@ -377,3 +377,9 @@ def submenu_insumos(df):
 if __name__ == "__main__":
     if iniciar_sesion():
         mostrar_menu_opciones()
+
+        #1. Buscar Insumos (listo)
+        #2. Mostrar lista de insumos (Producto Cantidad)
+        #3. Generar lista de insumos listos para envio (Filtro de la tabla de demanda)
+        #4. Enviar lista de insumos listos (configurarlo para q sea una opcion unica)
+        #5. Actualizar inventario (Se le resta la lista de insumos enviados a la lista de insumos)
