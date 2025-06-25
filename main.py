@@ -255,7 +255,7 @@ def iniciar_sesion():
 # ------------------ Menú principal ------------------ #
 def mostrar_menu_opciones():
     try:
-        filtro = FiltroPedidos(ruta)
+        filtro = FiltroPedidos(pedidos)
     except RuntimeError as e:
         print("❌", e)
         return
