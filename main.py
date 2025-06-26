@@ -12,18 +12,12 @@ insumos_disponibles = os.path.join(os.path.dirname(__file__), "data", "insumos_d
 demanda = os.path.join(os.path.dirname(__file__),"data", "demanda.xlsx")
 entregas = os.path.join(os.path.dirname(__file__),"data", "entregas.xlsx")
 detalle_entregas = os.path.join(os.path.dirname(__file__),"data", "detalle_entregas.xlsx")
+
 # ------------------ Credenciales de usuario ------------------ #
 usuarios = {
     "username": "j",
     "password": "j"
 }
-
-# ------------------ Configuración del servidor de correo ------------------ #
-SMTP_SERVER  = 'smtp.gmail.com'
-SMTP_PORT    = 587
-EMAIL_USER   = os.getenv('EMAIL_USER')   # Variable de entorno para mayor seguridad
-EMAIL_PASS   = os.getenv('EMAIL_PASS')
-LEADER_EMAIL = 'jmarquezco@unal.edu.co'  # Destinatario fijo
 
 # ------------------ Clase para gestionar filtros de pedidos ------------------ #
 def cargar_excel(ruta):
