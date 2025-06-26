@@ -528,7 +528,7 @@ def menu_consulta(filtro):
         else:
             print("❌ Opción no válida. Intenta de nuevo.")
 
-# ------------------ Submenú: Gestión de inventario ------------------ #
+# ------------------ Submenú: Consulta de inventario ------------------ #
 def menu_inventario():
     while True:
         print("\n== CONSULTAR INVENTARIO ==")
@@ -551,6 +551,7 @@ def menu_inventario():
         else:
             print("❌ Opción inválida. Intente de nuevo.")
 
+# ------------------ Submenú: Verificacion de insumos ------------------ #
 def menu_envio():
     while True:
         print("\n== VERIFICAR DISPONIBILIDAD DE INSUMOS ==")
@@ -619,8 +620,8 @@ def menu_reportes():
             break
         else:
             print("❌ Opción inválida")
-# ------------------ Punto de entrada ------------------ #
 
+# ------------------ Punto de entrada ------------------ #
 if __name__ == "__main__":
     if iniciar_sesion():
         mostrar_menu_opciones()
