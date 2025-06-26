@@ -593,9 +593,4 @@ def menu_reportes():
 if __name__ == "__main__":
     if iniciar_sesion():
         mostrar_menu_opciones()
-
-        #1. Buscar Insumos por nombre(listo)
-        #2. Mostrar lista de insumos (producto | cantidad | ultima_actualizacion)
-        #3. Generar lista de insumos listos para envio (Son todos los productos de la lista de demanda que su cantidad es menor a la de la cantidad de la lista de insumos)
-        #4. Enviar lista de insumos listos (debe generar un archivo descargable en Excel con la lista generada y enviarlo automáticamente al correo configurado del líder de Producción)
-        #5. Actualizar inventario (Se le resta la lista de los insumos de demanda a la lista de insumos)
+        
