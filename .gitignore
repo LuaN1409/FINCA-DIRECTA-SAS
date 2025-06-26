@@ -1,0 +1,22 @@
+# Entornos virtuales
+.venv/
+venv/
+
+# Byte-code y cachés
+__pycache__/
+*.pyc
+
+# Configs de IDE
+.vscode/
+*.iml
+
+# Logs, bases de datos locales
+*.log
+*.sqlite3
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+
+# Ignora cualquier archivo que comience con ~$
+\~$*

@@ -136,6 +136,9 @@ class FiltroPedidos:
             resumen.to_excel(demanda, index=False)
             print(f"✅ Resultados exportados a '{demanda}'")
             self.reiniciar_filtros()
+        except PermissionError:
+            print(f"❌ No se pudo exportar '{demanda}' porque está abierto en otro programa (como Excel).")
+            print("🔁 Por favor, ciérralo y vuelve a intentarlo.")
         except Exception as e:
             print("❌ Error al exportar:", e)
 
@@ -415,8 +418,7 @@ def seleccionar_reporte():
         return
 
     info = reporte_filtrado[reporte_filtrado['id'] == id_sel].iloc[0]
-    detalle = df_detalle[df_detalle['id_entrega'] == id_sel]
-
+    detalle = df_detalle[df_detalle['id_entrega'] == id_sel].copy()  # <-- Añade .copy()
     if "conforme" not in detalle.columns:
         detalle["conforme"] = True  # Por compatibilidad, se asume conforme si no está
 
@@ -472,11 +474,11 @@ def mostrar_menu_opciones():
 
     while True:
         print("\n=== MENÚ DE OPCIONES ===")
-        print("1. Consultar demanda de pedidos")
-        print("2. Consultar inventario")
-        print("3. Verificar dispinibilidad de insumos")
-        print("4. Recepcion de insumos")
-        print("5. Reportes de recepción de insumos")
+        print("1. Consultar demanda de pedidos (HU4)")
+        print("2. Consultar inventario (HU1)")
+        print("3. Verificar disponibilidad de insumos (HU2)")
+        print("4. Recepcion de insumos (HU5)")
+        print("5. Reportes de recepción de insumos (HU7)")
         print("0. Cerrar sesión")
 
         opcion = input("Elija una opción: ")
@@ -500,7 +502,7 @@ def mostrar_menu_opciones():
 # ------------------ Submenú: Consulta de pedidos ------------------ #
 def menu_consulta(filtro):
     while True:
-        print("\n== CONSULTAR DEMANDA DE PEDIDOS ==")
+        print("\n== CONSULTAR DEMANDA DE PEDIDOS ==") 
         print("1. Filtrar pedidos por fecha")
         print("2. Filtrar pedidos por producto")
         print("3. Filtrar pedidos producto y fecha")
@@ -625,3 +627,5 @@ def menu_reportes():
 if __name__ == "__main__":
     if iniciar_sesion():
         mostrar_menu_opciones()
+
+
