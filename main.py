@@ -12,18 +12,12 @@ insumos_disponibles = os.path.join(os.path.dirname(__file__), "data", "insumos_d
 demanda = os.path.join(os.path.dirname(__file__),"data", "demanda.xlsx")
 entregas = os.path.join(os.path.dirname(__file__),"data", "entregas.xlsx")
 detalle_entregas = os.path.join(os.path.dirname(__file__),"data", "detalle_entregas.xlsx")
+
 # ------------------ Credenciales de usuario ------------------ #
 usuarios = {
     "username": "j",
     "password": "j"
 }
-
-# ------------------ Configuración del servidor de correo ------------------ #
-SMTP_SERVER  = 'smtp.gmail.com'
-SMTP_PORT    = 587
-EMAIL_USER   = os.getenv('EMAIL_USER')   # Variable de entorno para mayor seguridad
-EMAIL_PASS   = os.getenv('EMAIL_PASS')
-LEADER_EMAIL = 'jmarquezco@unal.edu.co'  # Destinatario fijo
 
 # ------------------ Clase para gestionar filtros de pedidos ------------------ #
 def cargar_excel(ruta):
@@ -61,20 +55,10 @@ class FiltroPedidos:
                 print("⚠ No se encontraron pedidos en el rango de fechas indicado.")
             else:
                 print(f"✅ Pedidos filtrados desde {inicio_dt.date()} hasta {fin_dt.date()}.")
-                print(f"🔍 {self.df_filtrado.shape[0]} pedidos encontrados.")
+                print("📦 ID de pedido:")
+                print(self.df_filtrado['id'].to_string(index=False))
         except Exception:
             print("⚠ Formato de fecha inválido. Intenta con el formato YYYY-MM-DD.")
-
-    def filtrar_por_cliente(self):
-        nombre = input("👤 Nombre del cliente (puede ser parcial o ENTER para omitir): ")
-        if nombre:
-            self.df_filtrado = self.df_filtrado[
-                self.df_filtrado['cliente'].str.lower().str.contains(nombre.lower(), na=False)
-            ]
-            if self.df_filtrado.empty:
-                print(f"⚠ No se encontraron pedidos del cliente '{nombre}'.")
-            else:
-                print(f"🔍 {self.df_filtrado.shape[0]} pedidos coinciden con '{nombre}'.")
 
     def filtrar_por_producto(self):
         nombre = input("📦 Nombre del producto (puede ser parcial o ENTER para omitir): ")
@@ -85,27 +69,58 @@ class FiltroPedidos:
             if self.df_filtrado.empty:
                 print(f"⚠ No se encontraron pedidos del producto '{nombre}'.")
             else:
-                print(f"🔍 {self.df_filtrado.shape[0]} pedidos coinciden con '{nombre}'.")
+                print(f"🔍 Pedidos con producto '{nombre}':")
+                print("📦 ID de pedido:")
+                print(self.df_filtrado['id'].to_string(index=False))
 
-    def mostrar_totales(self):
-        print(f"📋 Total de pedidos: {len(self.df_filtrado)}")
-        if 'cantidad' in self.df_filtrado:
-            try:
-                total_cantidad = pd.to_numeric(self.df_filtrado['cantidad'], errors='coerce').sum()
-                print(f"📦 Total productos pedidos: {total_cantidad}")
-            except:
-                print("⚠ Error al calcular la cantidad total.")
+    def filtrar_combinado(self):
+        nombre = input("📦 Nombre del producto: ")
+        inicio = input("📅 Fecha desde (YYYY-MM-DD o ENTER para omitir): ")
+        fin = input("📅 Fecha hasta (YYYY-MM-DD o ENTER para omitir): ")
+        try:
+            df_temp = self.df.copy()
+            if nombre:
+                df_temp = df_temp[df_temp['producto'].str.lower().str.contains(nombre.lower(), na=False)]
 
-    def mostrar_tabla(self):
+            if inicio:
+                inicio_dt = pd.to_datetime(inicio)
+            else:
+                inicio_dt = df_temp['fecha'].min()
+            if fin:
+                fin_dt = pd.to_datetime(fin)
+            else:
+                fin_dt = df_temp['fecha'].max()
+
+            df_temp = df_temp[df_temp['fecha'].between(inicio_dt, fin_dt)]
+            self.df_filtrado = df_temp
+
+            if self.df_filtrado.empty:
+                print("⚠ No se encontraron pedidos con ese producto y rango de fechas.")
+            else:
+                print(f"🔍 Pedidos con '{nombre}' entre {inicio_dt.date()} y {fin_dt.date()}:")
+                print(self.df_filtrado['id'].to_string(index=False))
+        except Exception:
+            print("⚠ Error al aplicar filtros combinados.")
+
+    def mostrar_detalle_pedido(self):
         if self.df_filtrado.empty:
-            print("⚠ No hay pedidos para mostrar.")
-        else:
-            print("\n📄 Pedidos filtrados:")
-            tabla = self.df_filtrado.copy()
-            tabla.columns = [col.capitalize() for col in tabla.columns]
-            for col in tabla.select_dtypes(include=['object']).columns:
-                tabla[col] = tabla[col].astype(str).str.capitalize()
-            print(tabla.to_string(index=False))
+            print("⚠ No hay pedidos disponibles para ver detalles.")
+            return
+        try:
+            numero = input("🔎 Ingrese el ID del pedido a consultar: ")
+            detalle = self.df_filtrado[self.df_filtrado['id'].astype(str) == numero]
+            if not detalle.empty:
+                print("\n📌 Detalle del pedido:")
+                fila = detalle.iloc[0].copy()
+                for campo, valor in fila.items():
+                    if campo == "id":
+                        print(f"- ID: {valor}")
+                    else:
+                        print(f"- {campo.capitalize()}: {valor}")
+            else:
+                print("❌ ID de pedido no encontrado en los filtrados.")
+        except:
+            print("❌ Entrada no válida. Ingrese un número correcto.")
 
     def reiniciar_filtros(self):
         self.df_filtrado = self.df.copy()
@@ -115,35 +130,14 @@ class FiltroPedidos:
         if self.df_filtrado.empty:
             print("⚠ No hay datos para exportar.")
             return
-
-       
         try:
-            # Agrupar por tipo de producto y sumar cantidad
             resumen = self.df_filtrado.groupby('producto', as_index=False)['cantidad'].sum()
             resumen.columns = ['producto', 'total_cantidad']
             resumen.to_excel(demanda, index=False)
             print(f"✅ Resultados exportados a '{demanda}'")
+            self.reiniciar_filtros()
         except Exception as e:
             print("❌ Error al exportar:", e)
-
-    def mostrar_detalle_pedido(self):
-        if self.df_filtrado.empty:
-            print("⚠ No hay pedidos disponibles para ver detalles.")
-            return
-        try:
-            idx = int(input(f"🔎 Ingrese el número del pedido (0 a {len(self.df_filtrado)-1}): "))
-            if 0 <= idx < len(self.df_filtrado):
-                print("\n📌 Detalle del pedido:")
-                detalle = self.df_filtrado.iloc[idx].copy()
-                for col in detalle.index:
-                    if isinstance(detalle[col], str):
-                        detalle[col] = detalle[col].capitalize()
-                for campo, valor in detalle.items():
-                    print(f"- {campo.capitalize()}: {valor}")
-            else:
-                print("❌ Índice fuera de rango.")
-        except:
-            print("❌ Entrada no válida. Ingrese un número válido.")
 
 df_inventario = cargar_excel(inventario)
 df_demanda = cargar_excel(demanda)
@@ -154,62 +148,79 @@ df_demanda["producto_norm"] = df_demanda["producto"].astype(str).str.strip().str
 
 # Función 1: Buscar insumo por nombre
 def buscar_insumo(nombre):
+    df_inventario = cargar_excel(inventario)
+    df_inventario["producto_norm"] = df_inventario["producto"].astype(str).str.strip().str.lower()
     nombre = nombre.lower()
     resultado = df_inventario[df_inventario["producto_norm"].str.contains(nombre)]
-    print("\nResultados de la búsqueda:")
-    print(resultado[["producto", "cantidad", "ultima_actualizacion"]].to_string(index=False))
+    if resultado.empty:
+        print("❌ No se encontraron insumos con ese nombre.")
+    else:
+        print("\nResultado de la búsqueda:")
+        print(resultado[["producto", "cantidad", "ultima_actualizacion"]].to_string(index=False))
 
-# Función 2: Mostrar lista completa de insumos
+# Función 2: Mostrar lista completa de insumos (solo id 0-17, nombre y cantidad)
 def mostrar_lista_insumos():
+    df_inventario = cargar_excel(inventario)
     print("\nInventario completo:")
-    print(df_inventario[["producto", "cantidad", "ultima_actualizacion"]].to_string(index=False))
+    print(df_inventario.loc[0:17, ["producto", "cantidad"]].to_string(index=True))
 
-# Función 3: Generar lista de insumos listos para envío
-def generar_lista_envio():
+# Función 3: Ver detalle por ID
+def ver_detalle_insumo():
+    df_inventario = cargar_excel(inventario)
+    try:
+        idx = int(input("🔍 Ingrese el ID del insumo (0-17): "))
+        if 0 <= idx <= 17 and idx < len(df_inventario):
+            fila = df_inventario.loc[idx]
+            print("\n📦 Detalle del insumo:")
+            print(f"Producto: {fila['producto']}")
+            print(f"Cantidad: {fila['cantidad']}")
+            print(f"Última actualización: {fila['ultima_actualizacion']}")
+        else:
+            print("❌ ID fuera de rango.")
+    except:
+        print("❌ Entrada inválida. Ingrese un número entero.")
+
+
+def obtener_lista_insumos_listos():
+    df_inventario = cargar_excel(inventario)
+    df_demanda = cargar_excel(demanda)
+
+    df_inventario["producto_norm"] = df_inventario["producto"].astype(str).str.strip().str.lower()
+    df_demanda["producto_norm"] = df_demanda["producto"].astype(str).str.strip().str.lower()
+
     merged = pd.merge(df_demanda, df_inventario, on="producto_norm", suffixes=("_demanda", "_inv"))
     listos = merged[merged["cantidad"] >= merged["total_cantidad"]]
-    listos = listos[["producto_inv", "cantidad", "total_cantidad"]]
-    listos.columns = ["producto", "cantidad_disponible", "cantidad_requerida"]
-
-    print("\nLista de insumos listos para envío:")
-    print(listos.to_string(index=False))
+    listos = listos[["producto_inv", "total_cantidad"]]
+    listos.columns = ["producto", "cantidad_a_enviar"]
     return listos
 
-# Función 4: Generar Excel con lista para envío
-def exportar_lista_envio_excel(lista):
+
+# Función 4: Generar lista de insumos listos para envío (sin exportar ni enviar)
+def generar_lista_envio():
+    lista = obtener_lista_insumos_listos()
+    if lista.empty:
+        print("❌ No hay insumos que cumplan con la demanda.")
+    else:
+        print("\n📦 Insumos listos para envío:")
+        print(lista.to_string(index=False))
+    return lista
+
+# Función 5: Exportar lista y enviar por Gmail (correo fijo)
+def enviar_lista_insumos():
+    lista = obtener_lista_insumos_listos()  # Esta ya NO imprime nada
+    if lista.empty:
+        print("❌ No hay insumos que cumplan con la demanda.")
+        return
+
     ruta = os.path.join(os.path.dirname(inventario), "insumos_listos.xlsx")
     lista.to_excel(ruta, index=False)
     print(f"\n✅ Archivo generado: {ruta}")
 
-# Función 5: Actualizar inventario con fecha
-def actualizar_inventario():
-    global df_inventario
-    hoy = datetime.today().strftime("%Y-%m-%d")
-
-    for _, row in df_demanda.iterrows():
-        producto_norm = row["producto_norm"]
-        cantidad_req = row["total_cantidad"]
-
-        idx = df_inventario[df_inventario["producto_norm"] == producto_norm].index
-        if not idx.empty:
-            i = idx[0]
-            df_inventario.at[i, "cantidad"] = max(0, df_inventario.at[i, "cantidad"] - cantidad_req)
-            df_inventario.at[i, "ultima_actualizacion"] = hoy
-
-    df_inventario.drop(columns=["producto_norm"], inplace=True)
-    df_inventario.to_excel(inventario, index=False)
-    print("\n📦 Inventario actualizado correctamente.")
-
-# ------------------ Envío de correo con archivo adjunto ------------------ #
-def enviar_lista_por_correo():
-    archivo = os.path.join(os.path.dirname(inventario), "insumos_listos.xlsx")
-    if not os.path.exists(archivo):
-        print("❌ El archivo 'insumos_listos.xlsx' no existe. Primero genera la lista (opción 4).")
-        return
-
+    # Enviar por correo
+    archivo = ruta
     email_remitente = "elcoordinadordecompras@gmail.com"
     contraseña = "iocsdhwphxxhbzzp"
-    destinatario = input("Correo del destinatario: ")
+    destinatario = "jarinconb8@gmail.com"
 
     mensaje = EmailMessage()
     mensaje["Subject"] = "📦 Lista de insumos listos para envío"
@@ -232,6 +243,29 @@ def enviar_lista_por_correo():
             print("📧 Correo enviado exitosamente.")
     except Exception as e:
         print("❌ Error al enviar el correo:", e)
+
+# Función 6: Actualizar inventario con fecha
+def actualizar_inventario():
+    df_inventario = cargar_excel(inventario)
+    df_demanda = cargar_excel(demanda)
+    df_inventario["producto_norm"] = df_inventario["producto"].astype(str).str.strip().str.lower()
+    df_demanda["producto_norm"] = df_demanda["producto"].astype(str).str.strip().str.lower()
+
+    hoy = datetime.today().strftime("%Y-%m-%d")
+
+    for _, row in df_demanda.iterrows():
+        producto_norm = row["producto_norm"]
+        cantidad_req = row["total_cantidad"]
+
+        idx = df_inventario[df_inventario["producto_norm"] == producto_norm].index
+        if not idx.empty:
+            i = idx[0]
+            df_inventario.at[i, "cantidad"] = max(0, df_inventario.at[i, "cantidad"] - cantidad_req)
+            df_inventario.at[i, "ultima_actualizacion"] = hoy
+
+    df_inventario.drop(columns=["producto_norm"], inplace=True)
+    df_inventario.to_excel(inventario, index=False)
+    print("\n📦 Inventario actualizado correctamente.")
 
 def guardar_excel(df, ruta):
     try:
@@ -292,10 +326,11 @@ def verificar_insumos(productos):
     print("\n--- Verificar cantidad y calidad del insumo ---")
     validados = []
     for nombre, cantidad in productos:
-        estado = input(f"Producto '{nombre}' ({cantidad} unidades). ¿Está Conforme? (s/n): ").lower()
-        if estado == 's':
+        estado = input(f"Producto '{nombre}' ({cantidad} unidades). ¿Está Conforme? (Conforme/No conforme): ").strip().lower()
+        if estado == 'conforme':
             validados.append((nombre, cantidad))
     return validados
+
 
 def ingresar_inventario(productos_validados):
     print("\n--- Ingresar insumos conformes al inventario ---")
@@ -328,7 +363,8 @@ def ingresar_inventario(productos_validados):
     #Eliminar ultima columna
     df_inv = df_inv.drop(columns=["producto_normalizado"])
     guardar_excel(df_inv, inventario)
-    print("Inventario actualizado correctamente.")
+    print("✅ Inventario actualizado correctamente.")
+
 
 # Variable global para almacenar el resultado del filtro actual
 reporte_filtrado = pd.DataFrame()
@@ -381,19 +417,11 @@ def seleccionar_reporte():
     info = reporte_filtrado[reporte_filtrado['id'] == id_sel].iloc[0]
     detalle = df_detalle[df_detalle['id_entrega'] == id_sel]
 
-    print("\n📦 Detalle del reporte seleccionado:")
-    print(f"Proveedor: {info['proveedor']}")
-    print(f"Fecha de entrega: {info['fecha'].strftime('%Y-%m-%d')}")
-    print(f"Número de pedido: {info['numero_pedido']}")
-    print(f"Cantidad de productos diferentes: {info['cantidades_entregadas']}")
-    print("\nProductos entregados:")
-
     if "conforme" not in detalle.columns:
         detalle["conforme"] = True  # Por compatibilidad, se asume conforme si no está
 
     for _, row in detalle.iterrows():
         estado = "✅ Conforme" if row["conforme"] else "❌ No conforme"
-        print(f" - {row['producto']}: {row['cantidad']} unidades → {estado}")
 
     # Guardar como Excel limpio para descarga con estado legible
     salida = detalle.copy()
@@ -445,26 +473,25 @@ def mostrar_menu_opciones():
     while True:
         print("\n=== MENÚ DE OPCIONES ===")
         print("1. Consultar demanda de pedidos")
-        print("2. Gestionar inventario")
-        print("3. Recepcion de insumos")
-        print("4. Reportes de recepción de insumos")
-        print("5. Opción cinco (pendiente)")
-        print("6. Opción seis (pendiente)")
-        print("7. Cerrar sesión")
+        print("2. Consultar inventario")
+        print("3. Verificar dispinibilidad de insumos")
+        print("4. Recepcion de insumos")
+        print("5. Reportes de recepción de insumos")
+        print("0. Cerrar sesión")
 
-        opcion = input("Elija una opción (1-7): ")
+        opcion = input("Elija una opción: ")
         match opcion:
             case "1":
                 menu_consulta(filtro)
             case "2":
                 menu_inventario()
             case "3":
-                menu_recepcion()
+                menu_envio()
             case "4":
+                menu_recepcion()
+            case "5":
                 menu_reportes()
-            case "5" | "6":
-                print("✔ Has seleccionado una opción aún no implementada.")
-            case "7":
+            case "0":
                 print("👋 Cerrando sesión...")
                 break
             case _:
@@ -476,33 +503,27 @@ def menu_consulta(filtro):
         print("\n== CONSULTAR DEMANDA DE PEDIDOS ==")
         print("1. Filtrar pedidos por fecha")
         print("2. Filtrar pedidos por producto")
-        print("3. Filtrar pedidos por cliente")
-        print("4. Mostrar totales")
-        print("5. Mostrar tabla")
-        print("6. Exportar resultados")
-        print("7. Ver detalle de un pedido específico")
-        print("8. Reiniciar filtros")
-        print("9. Volver al menú principal")
+        print("3. Filtrar pedidos producto y fecha")
+        print("4. Ver detalle de un pedido específico")
+        print("5. Exportar resultados")
+        print("6. Reiniciar filtros")
+        print("7. Volver al menú principal")
 
-        opcion = input("Elija una opción (1-9 o 'salir'): ").strip().lower()
+        opcion = input("Elija una opción: ").strip().lower()
 
-        if opcion in ['9', 'salir']:
+        if opcion in ['7', 'salir']:
             break
         elif opcion == "1":
             filtro.filtrar_por_fecha()
         elif opcion == "2":
             filtro.filtrar_por_producto()
         elif opcion == "3":
-            filtro.filtrar_por_cliente()
+            filtro.filtrar_combinado()
         elif opcion == "4":
-            filtro.mostrar_totales()
-        elif opcion == "5":
-            filtro.mostrar_tabla()
-        elif opcion == "6":
-            filtro.exportar_resultados()
-        elif opcion == "7":
             filtro.mostrar_detalle_pedido()
-        elif opcion == "8":
+        elif opcion == "5":
+            filtro.exportar_resultados()
+        elif opcion == "6":
             filtro.reiniciar_filtros()
         else:
             print("❌ Opción no válida. Intenta de nuevo.")
@@ -510,37 +531,47 @@ def menu_consulta(filtro):
 # ------------------ Submenú: Gestión de inventario ------------------ #
 def menu_inventario():
     while True:
-        print("\n== GESTIONAR INVENTARIO ==")
-        print("1. Buscar insumo por nombre")
-        print("2. Mostrar lista completa de insumos")
-        print("3. Generar lista de insumos listos para envío")
-        print("4. Exportar lista de insumos listos a Excel")
-        print("5. Actualizar inventario con demanda")
-        print("6. Enviar lista por correo")
-        print("7. Volver al menú principal")
+        print("\n== CONSULTAR INVENTARIO ==")
+        print("1. Mostrar lista completa de insumos")
+        print("2. Ver detalles de insumo")
+        print("3. Buscar insumo por nombre")
+        print("4. Volver al menú principal")
 
         opcion = input("Seleccione una opción: ")
     
         if opcion == "1":
+            mostrar_lista_insumos()
+        elif opcion == "2":
+            ver_detalle_insumo()
+        elif opcion == "3":
             nombre = input("Ingrese el nombre del insumo: ")
             buscar_insumo(nombre)
-        elif opcion == "2":
-            mostrar_lista_insumos()
-        elif opcion == "3":
-            lista_envio = generar_lista_envio()
         elif opcion == "4":
-            try:
-                exportar_lista_envio_excel(lista_envio)
-            except NameError:
-                print("Primero debe generar la lista con la opción 3.")
-        elif opcion == "5":
-            actualizar_inventario()
-        elif opcion == "6":
-            enviar_lista_por_correo()
-        elif opcion == "7":
             break
         else:
             print("❌ Opción inválida. Intente de nuevo.")
+
+def menu_envio():
+    while True:
+        print("\n== VERIFICAR DISPONIBILIDAD DE INSUMOS ==")
+        print("1. Generar lista de insumos listos para envío")
+        print("2. Enviar lista de insumos listos al lider de produccion")
+        print("3. Actualizar inventario")
+        print("4. Volver al menú principal")
+
+        opcion = input("Seleccione una opción: ")
+        
+        if opcion == "1":
+            generar_lista_envio()
+        elif opcion == "2":
+            enviar_lista_insumos()
+        elif opcion == "3":
+            actualizar_inventario()
+        elif opcion == "4":
+            break
+        else:
+            print("❌ Opción inválida. Intente de nuevo.")
+
 
 # ------------------ Submenú: Recepcion de insumos ------------------ #
 def menu_recepcion():
@@ -593,9 +624,3 @@ def menu_reportes():
 if __name__ == "__main__":
     if iniciar_sesion():
         mostrar_menu_opciones()
-
-        #1. Buscar Insumos por nombre(listo)
-        #2. Mostrar lista de insumos (producto | cantidad | ultima_actualizacion)
-        #3. Generar lista de insumos listos para envio (Son todos los productos de la lista de demanda que su cantidad es menor a la de la cantidad de la lista de insumos)
-        #4. Enviar lista de insumos listos (debe generar un archivo descargable en Excel con la lista generada y enviarlo automáticamente al correo configurado del líder de Producción)
-        #5. Actualizar inventario (Se le resta la lista de los insumos de demanda a la lista de insumos)
