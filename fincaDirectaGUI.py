@@ -61,7 +61,7 @@ class FincaDirectaGUI:
         opciones = [
             ("Consultar demanda de pedidos", self.abrir_menu_consulta),
             ("Consultar inventario", self.abrir_menu_inventario),
-            ("Verificar disponibilidad de insumos", menu_envio),
+            ("Verificar disponibilidad de insumos", self.abrir_menu_envio),
             ("Recepción de insumos", menu_recepcion),
             ("Reportes de recepción de insumos", menu_reportes),
             ("Cerrar sesión", self.mostrar_login)
@@ -207,7 +207,8 @@ class FincaDirectaGUI:
                     ids_label.config(text="")
                 else:
                     resultado_label.config(
-                        text=f"🔍 Pedidos con '{nombre}' entre {inicio_dt.date()} y {fin_dt.date()}:", fg="green"
+                        text=f"🔍 Pedidos con '{nombre}' entre {inicio_dt.date()} y {fin_dt.date()}:",
+                        fg="green"
                     )
                     ids = df_temp['id'].to_list()
                     ids_str = ", ".join(str(i) for i in ids)
@@ -428,6 +429,97 @@ class FincaDirectaGUI:
 
         tk.Button(frame, text="Buscar", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=buscar).pack(pady=10)
         tk.Button(frame, text="Volver al menú anterior", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=self.abrir_menu_inventario).pack(pady=10)
+
+    def generar_lista_envio_gui(self):
+        import tkinter.ttk as ttk
+        from main import generar_lista_envio
+
+        self.limpiar_ventana()
+        frame = self.crear_frame()
+        tk.Label(frame, text="📦 Insumos listos para envío:", font=FONT_SUBTITLE, fg=COLOR_TITLE, bg=COLOR_FRAME).pack(pady=10)
+
+        # Obtener el DataFrame usando la función del main
+        lista = generar_lista_envio()
+        if lista is None or lista.empty:
+            tk.Label(frame, text="❌ No hay insumos que cumplan con la demanda.", fg="red", bg=COLOR_FRAME, font=FONT_LABEL).pack(pady=10)
+        else:
+            columnas = ["producto", "cantidad_a_enviar"]
+            tree = ttk.Treeview(frame, columns=columnas, show='headings', height=len(lista))
+            for col in columnas:
+                tree.heading(col, text=col.replace("_", " ").capitalize())
+                tree.column(col, anchor="center", width=180 if col == "producto" else 120)
+            for _, row in lista.iterrows():
+                tree.insert("", tk.END, values=[row["producto"], row["cantidad_a_enviar"]])
+            tree.pack(pady=10, fill="x", expand=True)
+
+        tk.Button(frame, text="Volver al menú anterior", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=self.abrir_menu_envio).pack(pady=10)
+
+    def abrir_menu_envio(self):
+        self.limpiar_ventana()
+        frame = self.crear_frame()
+        tk.Label(frame, text="VERIFICAR DISPONIBILIDAD DE INSUMOS", font=FONT_SUBTITLE, fg=COLOR_TITLE, bg=COLOR_FRAME).pack(pady=15)
+        opciones = [
+            ("1. Generar lista de insumos listos para envío", self.generar_lista_envio_gui),
+            ("2. Enviar lista de insumos listos al lider de produccion", self.enviar_lista_lider_gui),
+            ("3. Actualizar inventario", self.actualizar_inventario_gui),
+            ("4. Volver al menú principal", self.mostrar_menu_principal)
+        ]
+        for texto, comando in opciones:
+            tk.Button(frame, text=texto, width=40, font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=comando).pack(pady=4)
+
+    def enviar_lista_lider_gui(self):
+        from main import enviar_lista_insumos
+        import os
+
+        self.limpiar_ventana()
+        frame = self.crear_frame()
+        resultado_label = tk.Label(frame, text="", font=FONT_LABEL, bg=COLOR_FRAME)
+        resultado_label.pack(pady=30)
+
+        try:
+            # Llama a la función que exporta y envía el correo
+            enviar_lista_insumos()
+            ruta = os.path.join(os.path.dirname(__file__), "data", "insumos_listos.xlsx")
+            resultado_label.config(
+                text=f"✅ Archivo generado: {ruta}\n📧 Correo enviado exitosamente.",
+                fg="green"
+            )
+        except Exception as e:
+            resultado_label.config(
+                text=f"❌ Error al enviar el correo o generar el archivo:\n{e}",
+                fg="red"
+            )
+
+        tk.Button(
+            frame, text="Volver al menú anterior",
+            font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT,
+            command=self.abrir_menu_envio
+        ).pack(pady=10)
+
+    def actualizar_inventario_gui(self):
+        from main import actualizar_inventario  # Importa la función directamente
+        self.limpiar_ventana()
+        frame = self.crear_frame()
+        resultado_label = tk.Label(frame, text="", font=FONT_LABEL, bg=COLOR_FRAME)
+        resultado_label.pack(pady=30)
+
+        try:
+            actualizar_inventario()  # Llama la función que actualiza el inventario y guarda el archivo
+            resultado_label.config(
+                text="✅ Inventario actualizado correctamente.",
+                fg="green"
+            )
+        except Exception as e:
+            resultado_label.config(
+                text=f"❌ Error al actualizar el inventario:\n{e}",
+                fg="red"
+            )
+
+        tk.Button(
+            frame, text="Volver al menú anterior",
+            font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT,
+            command=self.abrir_menu_envio
+        ).pack(pady=10)
 if __name__ == "__main__":
     root = tk.Tk()
     app = FincaDirectaGUI(root)

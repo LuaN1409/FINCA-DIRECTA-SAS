@@ -201,11 +201,6 @@ def obtener_lista_insumos_listos():
 # Función 4: Generar lista de insumos listos para envío (sin exportar ni enviar)
 def generar_lista_envio():
     lista = obtener_lista_insumos_listos()
-    if lista.empty:
-        print("❌ No hay insumos que cumplan con la demanda.")
-    else:
-        print("\n📦 Insumos listos para envío:")
-        print(lista.to_string(index=False))
     return lista
 
 # Función 5: Exportar lista y enviar por Gmail (correo fijo)
