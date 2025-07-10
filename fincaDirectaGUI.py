@@ -7,7 +7,7 @@ from main import (
 
 COLOR_BG = "#f4f6fb"
 COLOR_FRAME = "#e3eafc"
-COLOR_BTN = "#4f8cff"
+COLOR_BTN = "#4f8cff" 
 COLOR_BTN_TEXT = "#fff"
 COLOR_TITLE = "#2a3b8f"
 COLOR_LABEL = "#222"
@@ -60,7 +60,7 @@ class FincaDirectaGUI:
         tk.Label(frame, text="MENÚ DE OPCIONES", font=FONT_TITLE, fg=COLOR_TITLE, bg=COLOR_FRAME).pack(pady=20)
         opciones = [
             ("Consultar demanda de pedidos", self.abrir_menu_consulta),
-            ("Consultar inventario", menu_inventario),
+            ("Consultar inventario", self.abrir_menu_inventario),
             ("Verificar disponibilidad de insumos", menu_envio),
             ("Recepción de insumos", menu_recepcion),
             ("Reportes de recepción de insumos", menu_reportes),
@@ -249,6 +249,19 @@ class FincaDirectaGUI:
                 detalle_label.config(text="❌ ID de pedido no encontrado en los filtrados", fg="red")
         tk.Button(frame, text="Consultar", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=mostrar_detalle).pack(pady=10)
         tk.Button(frame, text="Volver al menú anterior", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=self.abrir_menu_consulta).pack(pady=10)
+    
+    def abrir_menu_inventario(self):
+        self.limpiar_ventana()
+        frame = self.crear_frame()
+        tk.Label(frame, text="INVENTARIO DE INSUMOS", font=FONT_SUBTITLE, fg=COLOR_TITLE, bg=COLOR_FRAME).pack(pady=15)
+        opciones = [
+            ("1. Mostrar lista completa de insumos", self.mostrar_lista_insumos_gui),
+            ("2. Ver detalles de insumo", self.ver_detalle_insumo_gui),
+            ("3. Buscar insumo por nombre", self.buscar_insumo_nombre_gui),
+            ("4. Volver al menú principal", self.mostrar_menu_principal)
+        ]
+        for texto, comando in opciones:
+            tk.Button(frame, text=texto, width=40, font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=comando).pack(pady=4)
 
     def exportar_resultados_gui(self):
         import os
@@ -278,11 +291,143 @@ class FincaDirectaGUI:
             resultado_label.config(text=f"❌ Error al exportar: {e}", fg="red")
         tk.Button(frame, text="Volver al menú anterior", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=self.abrir_menu_consulta).pack(pady=10)
 
+        for texto, comando in opciones:
+            tk.Button(frame, text=texto, width=40, font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=comando).pack(pady=4)
+
     def reiniciar_filtros_gui(self):
         self.filtro.reiniciar_filtros()
         messagebox.showinfo("Filtros", "Filtros reiniciados correctamente. Se muestra la tabla original.")
         self.abrir_menu_consulta()
+        
+    def mostrar_lista_insumos_gui(self):
+        from main import df_inventario
+        import tkinter.ttk as ttk
+        self.limpiar_ventana()
+        frame = self.crear_frame()
+        tk.Label(frame, text="Inventario Completo:", font=FONT_SUBTITLE, fg=COLOR_TITLE, bg=COLOR_FRAME).pack(pady=10)
 
+        columnas = [col for col in ['id', 'producto', 'cantidad'] if col in df_inventario.columns]
+        df_mostrar = df_inventario[columnas]
+
+        tree = ttk.Treeview(frame, columns=columnas, show='headings', height=12)
+        style = ttk.Style()
+        style.configure("Treeview.Heading", font=FONT_LABEL, background=COLOR_FRAME, foreground=COLOR_TITLE)
+        style.configure("Treeview", font=FONT_LABEL, rowheight=24, background="#f9fafc", fieldbackground="#f9fafc")
+
+        for col in columnas:
+            tree.heading(col, text=col.capitalize())
+            tree.column(col, anchor="center", width=120)
+
+        for _, row in df_mostrar.iterrows():
+            tree.insert("", tk.END, values=list(row))
+            tree.pack(pady=10, fill="x", expand=True)
+
+        tk.Button(
+        frame, text="Volver al menú anterior",
+        font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT,
+        command=self.abrir_menu_inventario
+        ).pack(pady=10)
+
+    def ver_detalle_insumo_gui(self):
+        from main import df_inventario
+        import tkinter.ttk as ttk
+
+        self.limpiar_ventana()
+        frame = self.crear_frame()
+
+        # Detectar el ID máximo
+        max_id = len(df_inventario) - 1
+        tk.Label(
+            frame,
+            text=f"🔍 Ingrese el ID del insumo (0-{max_id}):",
+            font=FONT_LABEL,
+            bg=COLOR_FRAME
+        ).pack(pady=10)
+        id_entry = tk.Entry(frame, font=FONT_LABEL)
+        id_entry.pack(pady=2)
+
+        detalle_frame = tk.Frame(frame, bg=COLOR_FRAME)
+        detalle_frame.pack(pady=15)
+
+        # Título SIEMPRE arriba de la tabla
+        titulo_label = tk.Label(
+            detalle_frame,
+            text="📦 Detalle del insumo:",
+            font=FONT_SUBTITLE,
+            fg=COLOR_TITLE,
+            bg=COLOR_FRAME
+        )
+        titulo_label.pack(side="top", pady=5)
+
+        def mostrar_detalle():
+            # Elimina widgets previos excepto el título
+            for widget in detalle_frame.winfo_children():
+                if widget != titulo_label:
+                    widget.destroy()
+            try:
+                idx = int(id_entry.get())
+                if 0 <= idx <= max_id:
+                    fila = df_inventario.loc[idx]
+                    # Mostrar como tabla estilizada
+                    tree = ttk.Treeview(detalle_frame, columns=("Campo", "Valor"), show="headings", height=3)
+                    tree.heading("Campo", text="Campo")
+                    tree.heading("Valor", text="Valor")
+                    tree.column("Campo", anchor="center", width=150)
+                    tree.column("Valor", anchor="center", width=200)
+                    tree.insert("", "end", values=("Producto", fila["producto"]))
+                    tree.insert("", "end", values=("Cantidad", fila["cantidad"]))
+                    tree.insert("", "end", values=("Última actualización", fila["ultima_actualizacion"]))
+                    tree.pack()
+                else:
+                    tk.Label(detalle_frame, text="❌ ID fuera de rango.", fg="red", bg=COLOR_FRAME, font=FONT_LABEL).pack()
+            except Exception:
+                tk.Label(detalle_frame, text="❌ Entrada inválida. Ingrese un número entero.", fg="red", bg=COLOR_FRAME, font=FONT_LABEL).pack()
+
+        tk.Button(
+            frame, text="Consultar", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=mostrar_detalle
+        ).pack(pady=10)
+        tk.Button(
+            frame, text="Volver al menú anterior", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=self.abrir_menu_inventario
+        ).pack(pady=10)
+
+    def buscar_insumo_nombre_gui(self):
+        from main import df_inventario
+        import tkinter.ttk as ttk
+
+        self.limpiar_ventana()
+        frame = self.crear_frame()
+        tk.Label(frame, text="Ingrese el nombre del insumo:", font=FONT_LABEL, bg=COLOR_FRAME).pack(pady=10)
+        nombre_entry = tk.Entry(frame, font=FONT_LABEL)
+        nombre_entry.pack(pady=2)
+
+        resultado_frame = tk.Frame(frame, bg=COLOR_FRAME)
+        resultado_frame.pack(pady=15)
+
+        def buscar():
+            for widget in resultado_frame.winfo_children():
+                widget.destroy()
+            nombre = nombre_entry.get().strip().lower()
+            if not nombre:
+                tk.Label(resultado_frame, text="⚠ Debe ingresar un nombre.", fg="red", bg=COLOR_FRAME, font=FONT_LABEL).pack()
+                return
+            # Normaliza y busca
+            df_inventario["producto_norm"] = df_inventario["producto"].astype(str).str.strip().str.lower()
+            resultado = df_inventario[df_inventario["producto_norm"].str.contains(nombre)]
+            if resultado.empty:
+                tk.Label(resultado_frame, text="❌ No se encontraron insumos con ese nombre.", fg="red", bg=COLOR_FRAME, font=FONT_LABEL).pack()
+            else:
+                tk.Label(resultado_frame, text="Resultado de la búsqueda:", font=FONT_SUBTITLE, fg=COLOR_TITLE, bg=COLOR_FRAME).pack(pady=5)
+                columnas = ["producto", "cantidad", "ultima_actualizacion"]
+                tree = ttk.Treeview(resultado_frame, columns=columnas, show='headings', height=len(resultado))
+                for col in columnas:
+                    tree.heading(col, text=col.capitalize())
+                    tree.column(col, anchor="center", width=140)
+                for _, row in resultado.iterrows():
+                    tree.insert("", tk.END, values=[row["producto"], row["cantidad"], row["ultima_actualizacion"]])
+                tree.pack(pady=5, fill="x", expand=True)
+
+        tk.Button(frame, text="Buscar", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=buscar).pack(pady=10)
+        tk.Button(frame, text="Volver al menú anterior", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=self.abrir_menu_inventario).pack(pady=10)
 if __name__ == "__main__":
     root = tk.Tk()
     app = FincaDirectaGUI(root)
