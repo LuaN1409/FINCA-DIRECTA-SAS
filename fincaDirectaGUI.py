@@ -62,8 +62,8 @@ class FincaDirectaGUI:
             ("Consultar demanda de pedidos", self.abrir_menu_consulta),
             ("Consultar inventario", self.abrir_menu_inventario),
             ("Verificar disponibilidad de insumos", self.abrir_menu_envio),
-            ("Recepción de insumos", menu_recepcion),
-            ("Reportes de recepción de insumos", menu_reportes),
+            ("Recepción de insumos", self.abrir_menu_recepcion),
+            ("Reportes de recepción de insumos", self.abrir_menu_reportes),
             ("Cerrar sesión", self.mostrar_login)
         ]
         for texto, comando in opciones:
@@ -520,6 +520,349 @@ class FincaDirectaGUI:
             font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT,
             command=self.abrir_menu_envio
         ).pack(pady=10)
+
+    def abrir_menu_recepcion(self):
+        self.limpiar_ventana()
+        frame = self.crear_frame()
+        tk.Label(frame, text="RECEPCIÓN DE INSUMOS", font=FONT_SUBTITLE, fg=COLOR_TITLE, bg=COLOR_FRAME).pack(pady=15)
+        opciones = [
+            ("1. Registrar información del pedido", self.registrar_info_pedido_gui),
+            ("2. Validar campos de ingreso de datos", self.validar_campos_gui),
+            ("3. Verificar cantidad y calidad del insumo", self.verificar_cantidad_calidad_gui),
+            ("4. Ingresar insumos conformes al inventario", self.ingresar_insumos_inventario_gui),
+            ("5. Volver al menú principal", self.mostrar_menu_principal)
+        ]
+        for texto, comando in opciones:
+            tk.Button(frame, text=texto, width=40, font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=comando).pack(pady=4)
+
+    def registrar_info_pedido_gui(self):
+        self.limpiar_ventana()
+        frame = self.crear_frame()
+        tk.Label(frame, text="Registrar información del pedido", font=FONT_SUBTITLE, fg=COLOR_TITLE, bg=COLOR_FRAME).pack(pady=10)
+        labels = [
+            ("Nombre del proveedor:", "proveedor"),
+            ("Fecha de recepción (YYYY-MM-DD):", "fecha"),
+            ("Número de pedido:", "numero"),
+            ("Cantidad de productos diferentes entregados:", "cantidad_productos")
+        ]
+        entries = {}
+        for texto, key in labels:
+            tk.Label(frame, text=texto, font=FONT_LABEL, bg=COLOR_FRAME).pack()
+            entry = tk.Entry(frame, font=FONT_LABEL)
+            entry.pack(pady=2)
+            entries[key] = entry
+        productos_frame = tk.Frame(frame, bg=COLOR_FRAME)
+        productos_frame.pack(pady=10)
+        productos = []
+        registrar_btn = tk.Button(frame, text="Registrar productos entregados", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT)
+        registrar_btn.pack(pady=10)
+        reintentar_btn = tk.Button(frame, text="Reintentar", font=FONT_BTN, bg="#e74c3c", fg=COLOR_BTN_TEXT)
+        reintentar_btn.pack_forget()
+        def reintentar():
+            self.registrar_info_pedido_gui()
+        reintentar_btn.config(command=reintentar)
+        def pedir_productos():
+            # Deshabilita los campos generales
+            for entry in entries.values():
+                entry.config(state="disabled")
+            registrar_btn.pack_forget()
+            reintentar_btn.pack(pady=5)
+            for widget in productos_frame.winfo_children():
+                widget.destroy()
+            try:
+                n = int(entries["cantidad_productos"].get())
+            except Exception:
+                tk.Label(productos_frame, text="❌ Ingrese un número válido de productos.", fg="red", bg=COLOR_FRAME, font=FONT_LABEL).pack()
+                return
+            productos.clear()
+            def pedir_producto(i):
+                for widget in productos_frame.winfo_children():
+                    widget.destroy()
+                tk.Label(productos_frame, text=f"Nombre del producto {i+1}:", font=FONT_LABEL, bg=COLOR_FRAME).pack()
+                nombre_entry = tk.Entry(productos_frame, font=FONT_LABEL)
+                nombre_entry.pack(pady=2)
+                tk.Label(productos_frame, text=f"Cantidad de '{i+1}':", font=FONT_LABEL, bg=COLOR_FRAME).pack()
+                cantidad_entry = tk.Entry(productos_frame, font=FONT_LABEL)
+                cantidad_entry.pack(pady=2)
+                def siguiente():
+                    nombre = nombre_entry.get().strip()
+                    cantidad = cantidad_entry.get().strip()
+                    if not nombre or not cantidad.isdigit():
+                        tk.Label(productos_frame, text="❌ Complete ambos campos correctamente.", fg="red", bg=COLOR_FRAME, font=FONT_LABEL).pack()
+                        return
+                    productos.append({"nombre": nombre, "cantidad": int(cantidad)})
+                    if i + 1 < n:
+                        pedir_producto(i + 1)
+                    else:
+                        self.datos_pedido = {
+                            "proveedor": entries["proveedor"].get().strip(),
+                            "fecha": entries["fecha"].get().strip(),
+                            "numero": entries["numero"].get().strip(),
+                            "cantidad_productos": n,
+                            "productos": productos.copy()
+                        }
+                        self.mostrar_registro_exitoso()
+                tk.Button(productos_frame, text="Siguiente", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=siguiente).pack(pady=5)
+            pedir_producto(0)
+        registrar_btn.config(command=pedir_productos)
+        tk.Button(frame, text="Volver al menú anterior", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=self.abrir_menu_recepcion).pack(pady=10)
+
+    def mostrar_registro_exitoso(self):
+        self.limpiar_ventana()
+        frame = self.crear_frame()
+        tk.Label(frame, text="✅ Registro realizado con éxito", font=FONT_SUBTITLE, fg="green", bg=COLOR_FRAME).pack(pady=30)
+        tk.Button(frame, text="Volver al menú anterior", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=self.abrir_menu_recepcion).pack(pady=20)
+
+    def validar_campos_gui(self):
+        from datetime import datetime
+        self.limpiar_ventana()
+        frame = self.crear_frame()
+        tk.Label(frame, text="Validar datos del pedido", font=FONT_SUBTITLE, fg=COLOR_TITLE, bg=COLOR_FRAME).pack(pady=10)
+        errores = []
+        datos = getattr(self, "datos_pedido", None)
+        if not datos:
+            tk.Label(frame, text="❌ No hay datos registrados para validar.", fg="red", bg=COLOR_FRAME, font=FONT_LABEL).pack(pady=10)
+        else:
+            if not datos["proveedor"]:
+                errores.append("- El nombre del proveedor no puede estar vacío.")
+            try:
+                datetime.strptime(datos["fecha"], "%Y-%m-%d")
+            except Exception:
+                errores.append("- La fecha debe tener formato YYYY-MM-DD y ser válida.")
+            if not datos["numero"]:
+                errores.append("- El número de pedido no puede estar vacío.")
+            if not isinstance(datos["cantidad_productos"], int) or datos["cantidad_productos"] <= 0:
+                errores.append("- La cantidad de productos debe ser un número entero positivo.")
+            for idx, prod in enumerate(datos["productos"]):
+                if not prod["nombre"]:
+                    errores.append(f"- El nombre del producto {idx+1} no puede estar vacío.")
+                if not isinstance(prod["cantidad"], int) or prod["cantidad"] <= 0:
+                    errores.append(f"- La cantidad de '{prod['nombre']}' debe ser un número entero positivo.")
+            if errores:
+                tk.Label(frame, text="❌ Errores encontrados:", fg="red", bg=COLOR_FRAME, font=FONT_LABEL).pack(pady=5)
+                for err in errores:
+                    tk.Label(frame, text=err, fg="red", bg=COLOR_FRAME, font=FONT_LABEL, anchor="w", justify="left").pack(anchor="w")
+            else:
+                resumen = (
+                    f"Proveedor: {datos['proveedor']}\n"
+                    f"Fecha: {datos['fecha']}\n"
+                    f"Número de pedido: {datos['numero']}\n"
+                    f"Cantidad de productos: {datos['cantidad_productos']}\n"
+                    "Productos:\n" +
+                    "\n".join([f"  - {p['nombre']}: {p['cantidad']}" for p in datos['productos']])
+                )
+                tk.Label(frame, text="✅ Todos los datos son válidos.", fg="green", bg=COLOR_FRAME, font=FONT_LABEL).pack(pady=5)
+                tk.Label(frame, text=resumen, fg="black", bg=COLOR_FRAME, font=FONT_LABEL, justify="left").pack(pady=5)
+        tk.Button(frame, text="Volver al menú anterior", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=self.abrir_menu_recepcion).pack(pady=10)
+
+    def verificar_cantidad_calidad_gui(self):
+        self.limpiar_ventana()
+        frame = self.crear_frame()
+        tk.Label(frame, text="Verificar cantidad y calidad del insumo", font=FONT_SUBTITLE, fg=COLOR_TITLE, bg=COLOR_FRAME).pack(pady=10)
+        datos = getattr(self, "datos_pedido", None)
+        if not datos or not datos.get("productos"):
+            tk.Label(frame, text="❌ No hay productos registrados para verificar.", fg="red", bg=COLOR_FRAME, font=FONT_LABEL).pack(pady=10)
+            tk.Button(frame, text="Volver al menú anterior", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=self.abrir_menu_recepcion).pack(pady=10)
+            return
+        productos = datos["productos"]
+        conformes = []
+        def verificar_producto(i):
+            for widget in frame.winfo_children()[1:]:
+                widget.destroy()
+            prod = productos[i]
+            texto = f"Producto '{prod['nombre']}' ({prod['cantidad']} unidades). ¿Está Conforme?"
+            tk.Label(frame, text=texto, font=FONT_LABEL, bg=COLOR_FRAME).pack(pady=10)
+            var = tk.StringVar(value="Conforme")
+            opciones = ["Conforme", "No conforme"]
+            menu = tk.OptionMenu(frame, var, *opciones)
+            menu.config(font=FONT_LABEL)
+            menu.pack(pady=5)
+            def siguiente():
+                if var.get() == "Conforme":
+                    conformes.append(prod)
+                if i + 1 < len(productos):
+                    verificar_producto(i + 1)
+                else:
+                    self.datos_pedido["productos"] = conformes
+                    self.mostrar_verificacion_exitosa()
+            tk.Button(frame, text="Siguiente", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=siguiente).pack(pady=10)
+        verificar_producto(0)
+
+    def mostrar_verificacion_exitosa(self):
+        self.limpiar_ventana()
+        frame = self.crear_frame()
+        tk.Label(frame, text="✅ Verificación completada. Solo se guardarán los productos conformes.", font=FONT_SUBTITLE, fg="green", bg=COLOR_FRAME).pack(pady=30)
+        tk.Button(frame, text="Volver al menú anterior", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=self.abrir_menu_recepcion).pack(pady=20)
+
+    def ingresar_insumos_inventario_gui(self):
+        import pandas as pd
+        from main import cargar_excel, guardar_excel, inventario
+        from datetime import datetime
+        datos = getattr(self, "datos_pedido", None)
+        if not datos or not datos.get("productos"):
+            messagebox.showerror("Error", "No hay productos conformes para ingresar al inventario.")
+            self.abrir_menu_recepcion()
+            return
+        productos = datos["productos"]
+        if not productos:
+            messagebox.showerror("Error", "No hay productos conformes para ingresar al inventario.")
+            self.abrir_menu_recepcion()
+            return
+        df_inv = cargar_excel(inventario)
+        if df_inv.empty or 'producto' not in df_inv.columns or 'cantidad' not in df_inv.columns:
+            df_inv = pd.DataFrame(columns=["producto", "cantidad", "ultima_actualizacion"])
+        if 'ultima_actualizacion' not in df_inv.columns:
+            df_inv['ultima_actualizacion'] = None
+        df_inv['producto_normalizado'] = df_inv['producto'].astype(str).str.strip().str.lower()
+        hoy = datetime.today().strftime('%Y-%m-%d')
+        for prod in productos:
+            nombre_original = prod['nombre'].strip()
+            nombre_normalizado = nombre_original.lower()
+            cantidad = prod['cantidad']
+            if nombre_normalizado in df_inv['producto_normalizado'].values:
+                index = df_inv[df_inv['producto_normalizado'] == nombre_normalizado].index[0]
+                df_inv.at[index, 'cantidad'] += cantidad
+                df_inv.at[index, 'ultima_actualizacion'] = hoy
+            else:
+                nueva_fila = pd.DataFrame([[nombre_original, cantidad, hoy]], columns=["producto", "cantidad", "ultima_actualizacion"])
+                df_inv = pd.concat([df_inv, nueva_fila], ignore_index=True)
+        df_inv = df_inv.drop(columns=["producto_normalizado"])
+        guardar_excel(df_inv, inventario)
+        self.limpiar_ventana()
+        frame = self.crear_frame()
+        tk.Label(frame, text="✅ Insumos conformes ingresados al inventario correctamente.", font=FONT_SUBTITLE, fg="green", bg=COLOR_FRAME).pack(pady=30)
+        tk.Button(frame, text="Volver al menú anterior", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=self.abrir_menu_recepcion).pack(pady=20)
+        # Limpia productos para evitar doble ingreso
+        self.datos_pedido["productos"] = []
+
+    def abrir_menu_reportes(self):
+        self.limpiar_ventana()
+        frame = self.crear_frame()
+        tk.Label(frame, text="REPORTES DE RECEPCIÓN DE INSUMOS", font=FONT_SUBTITLE, fg=COLOR_TITLE, bg=COLOR_FRAME).pack(pady=15)
+        opciones = [
+            ("1. Filtrar por fechas", self.filtrar_reportes_por_fechas_gui),
+            ("2. Seleccionar reporte específico", self.seleccionar_reporte_gui),
+            ("3. Descargar reporte", self.descargar_reporte_gui),
+            ("4. Volver al menú principal", self.mostrar_menu_principal)
+        ]
+        for texto, comando in opciones:
+            tk.Button(frame, text=texto, width=40, font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=comando).pack(pady=4)
+
+    def filtrar_reportes_por_fechas_gui(self):
+        import pandas as pd
+        from main import cargar_excel, entregas
+        from tkinter import ttk
+        self.limpiar_ventana()
+        frame = self.crear_frame()
+        tk.Label(frame, text="Filtrar reportes por fechas", font=FONT_SUBTITLE, fg=COLOR_TITLE, bg=COLOR_FRAME).pack(pady=10)
+        tk.Label(frame, text="Ingrese la fecha de inicio (YYYY-MM-DD):", font=FONT_LABEL, bg=COLOR_FRAME).pack()
+        fecha_ini_entry = tk.Entry(frame, font=FONT_LABEL)
+        fecha_ini_entry.pack(pady=2)
+        tk.Label(frame, text="Ingrese la fecha de fin (YYYY-MM-DD):", font=FONT_LABEL, bg=COLOR_FRAME).pack()
+        fecha_fin_entry = tk.Entry(frame, font=FONT_LABEL)
+        fecha_fin_entry.pack(pady=2)
+        resultado_frame = tk.Frame(frame, bg=COLOR_FRAME)
+        resultado_frame.pack(pady=10, fill="both", expand=True)
+        self.reportes_filtrados = None  # Limpiar filtro previo
+        def filtrar():
+            for widget in resultado_frame.winfo_children():
+                widget.destroy()
+            fecha_ini = fecha_ini_entry.get().strip()
+            fecha_fin = fecha_fin_entry.get().strip()
+            try:
+                df_entregas = cargar_excel(entregas)
+                if df_entregas.empty:
+                    tk.Label(resultado_frame, text="No hay entregas registradas.", fg="red", bg=COLOR_FRAME, font=FONT_LABEL).pack()
+                    self.reportes_filtrados = None
+                    return
+                df_entregas['fecha'] = pd.to_datetime(df_entregas['fecha'])
+                ini = pd.to_datetime(fecha_ini)
+                fin = pd.to_datetime(fecha_fin)
+                filtrado = df_entregas[(df_entregas['fecha'] >= ini) & (df_entregas['fecha'] <= fin)]
+                self.reportes_filtrados = filtrado.copy()  # Guardar filtro
+                if filtrado.empty:
+                    tk.Label(resultado_frame, text="🔍 No hay entregas en ese rango de fechas.", fg="red", bg=COLOR_FRAME, font=FONT_LABEL).pack()
+                else:
+                    tk.Label(resultado_frame, text="📄 Reportes disponibles:", font=FONT_LABEL, fg=COLOR_TITLE, bg=COLOR_FRAME).pack(anchor="w")
+                    columnas = ("ID", "Pedido", "Fecha", "Proveedor")
+                    tree = ttk.Treeview(resultado_frame, columns=columnas, show='headings', height=8)
+                    for col in columnas:
+                        tree.heading(col, text=col)
+                        tree.column(col, anchor="center", width=120)
+                    for _, row in filtrado.iterrows():
+                        tree.insert("", "end", values=(row['id'], row['numero_pedido'], row['fecha'].strftime('%Y-%m-%d'), row['proveedor']))
+                    tree.pack(fill="both", expand=True)
+            except Exception:
+                tk.Label(resultado_frame, text="❌ Formato de fecha inválido.", fg="red", bg=COLOR_FRAME, font=FONT_LABEL).pack()
+                self.reportes_filtrados = None
+        tk.Button(frame, text="Filtrar", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=filtrar).pack(pady=10)
+        tk.Button(frame, text="Volver al menú anterior", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=self.abrir_menu_reportes).pack(pady=10)
+
+    def seleccionar_reporte_gui(self):
+        import pandas as pd
+        from main import cargar_excel, entregas, detalle_entregas
+        import os
+        self.limpiar_ventana()
+        frame = self.crear_frame()
+        tk.Label(frame, text="Seleccionar reporte específico", font=FONT_SUBTITLE, fg=COLOR_TITLE, bg=COLOR_FRAME).pack(pady=10)
+        if not hasattr(self, "reportes_filtrados") or self.reportes_filtrados is None or self.reportes_filtrados.empty:
+            tk.Label(frame, text="⚠ Primero debe filtrar por fechas para ver los reportes disponibles.", fg="red", bg=COLOR_FRAME, font=FONT_LABEL).pack(pady=10)
+            tk.Button(frame, text="Ir a filtrar por fechas", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=self.filtrar_reportes_por_fechas_gui).pack(pady=10)
+            tk.Button(frame, text="Volver al menú anterior", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=self.abrir_menu_reportes).pack(pady=10)
+            return
+        tk.Label(frame, text="Ingrese el ID del reporte que desea ver:", font=FONT_LABEL, bg=COLOR_FRAME).pack()
+        id_entry = tk.Entry(frame, font=FONT_LABEL)
+        id_entry.pack(pady=2)
+        mensaje_label = tk.Label(frame, text="", font=FONT_LABEL, bg=COLOR_FRAME, fg="green")
+        mensaje_label.pack(pady=8)
+        def generar_reporte():
+            id_sel = id_entry.get().strip()
+            if not id_sel.isdigit():
+                mensaje_label.config(text="❌ ID inválido.", fg="red")
+                return
+            id_sel = int(id_sel)
+            # Solo IDs del filtro
+            if id_sel not in self.reportes_filtrados['id'].values:
+                mensaje_label.config(text="❌ El ID seleccionado no pertenece al filtro actual.", fg="red")
+                return
+            df_entregas = self.reportes_filtrados  # Usar solo el filtro
+            df_detalle = cargar_excel(detalle_entregas)
+            info = df_entregas[df_entregas['id'] == id_sel].iloc[0]
+            detalle = df_detalle[df_detalle['id_entrega'] == id_sel].copy()
+            if "conforme" not in detalle.columns:
+                detalle["conforme"] = True
+            salida = detalle.copy()
+            salida.insert(0, "Proveedor", info['proveedor'])
+            salida.insert(1, "Fecha", pd.to_datetime(info['fecha']).strftime('%Y-%m-%d'))
+            salida.insert(2, "Pedido", info['numero_pedido'])
+            salida['conformidad'] = salida['conforme'].apply(lambda x: "Conforme" if x else "No conforme")
+            salida = salida[["Proveedor", "Fecha", "Pedido", "producto", "cantidad", "conformidad"]]
+            nombre_archivo = os.path.join(os.path.dirname(entregas), f"reporte_pedido_{id_sel}.xlsx")
+            salida.to_excel(nombre_archivo, index=False)
+            mensaje_label.config(text=f"✅ El reporte ha sido generado como '{nombre_archivo}'.", fg="green")
+        tk.Button(frame, text="Siguiente", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=generar_reporte).pack(pady=8)
+        tk.Button(frame, text="Volver al menú anterior", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=self.abrir_menu_reportes).pack(pady=10)
+
+    def descargar_reporte_gui(self):
+        import os
+        from main import entregas
+        self.limpiar_ventana()
+        frame = self.crear_frame()
+        carpeta = os.path.dirname(entregas)
+        archivos = [f for f in os.listdir(carpeta) if f.startswith("reporte_pedido_") and f.endswith(".xlsx")]
+        if not hasattr(self, "reportes_filtrados") or self.reportes_filtrados is None or self.reportes_filtrados.empty:
+            tk.Label(frame, text="⚠ Primero debe filtrar por fechas y generar un reporte específico.", fg="red", bg=COLOR_FRAME, font=FONT_LABEL).pack(pady=10)
+            tk.Button(frame, text="Ir a filtrar por fechas", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=self.filtrar_reportes_por_fechas_gui).pack(pady=10)
+            tk.Button(frame, text="Volver al menú anterior", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=self.abrir_menu_reportes).pack(pady=10)
+            return
+        if not archivos:
+            tk.Label(frame, text="❌ No hay reporte generado para descargar. Primero selecciona uno.", fg="red", bg=COLOR_FRAME, font=FONT_LABEL).pack(pady=10)
+        else:
+            tk.Label(frame, text="📥 Reportes disponibles en la carpeta 'data/':", font=FONT_LABEL, fg=COLOR_TITLE, bg=COLOR_FRAME).pack(pady=10, anchor="w")
+            for archivo in archivos:
+                tk.Label(frame, text=f" - {archivo}", font=FONT_LABEL, fg="#222", bg=COLOR_FRAME, anchor="w", justify="left").pack(anchor="w")
+        tk.Button(frame, text="Volver al menú anterior", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=self.abrir_menu_reportes).pack(pady=10)
+
 if __name__ == "__main__":
     root = tk.Tk()
     app = FincaDirectaGUI(root)
