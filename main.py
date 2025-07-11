@@ -444,21 +444,231 @@ def descargar_reporte():
         for archivo in archivos:
             print(" -", archivo)
 
-# ------------------ Autenticación de usuario ------------------ #
+# ------------------ Inicio de Sesion ------------------ #
+usuarios_path = os.path.join(os.path.dirname(__file__), "data", "usuarios.xlsx")
+clave_maestra = "FDsas/25"
+
+def cargar_usuarios():
+    if os.path.exists(usuarios_path):
+        return pd.read_excel(usuarios_path)
+    else:
+        return pd.DataFrame(columns=["correo", "contraseña"])
+
+def guardar_usuarios(df):
+    df.to_excel(usuarios_path, index=False)
+
 def iniciar_sesion():
+    print("\n=== AUTENTICACIÓN DEL SISTEMA ===")
+    usuarios_df = cargar_usuarios()
+
     while True:
-        print("\n=== INICIO DE SESIÓN ===")
-        usuario = input("👤 Usuario (o escriba 'salir' para terminar): ")
-        if usuario.lower() == 'salir':
+        print("\n1. Iniciar sesión")
+        print("2. Crear cuenta nueva")
+        print("3. Salir")
+        opcion = input("Seleccione una opción (1-3): ").strip()
+
+        if opcion == "1":
+            correo = input("📧 Correo: ").strip()
+            contraseña = input("🔒 Contraseña: ").strip()
+
+            if not correo or not contraseña:
+                print("❌ Todos los campos son obligatorios.")
+                continue
+
+            encontrado = usuarios_df[
+                (usuarios_df["correo"].str.strip().str.lower() == correo.lower()) &
+                (usuarios_df["contraseña"] == contraseña)
+            ]
+
+            if not encontrado.empty:
+                print("✅ Inicio de sesión exitoso.")
+                return True
+            else:
+                print("❌ Correo o contraseña incorrectos.")
+
+        elif opcion == "2":
+            correo = input("📧 Nuevo correo: ").strip()
+            contraseña_nueva = input("🔒 Nueva contraseña: ").strip()
+            clave = input("🔑 Clave maestra para crear cuenta: ").strip()
+
+            if not correo or not contraseña_nueva or not clave:
+                print("❌ Todos los campos son obligatorios.")
+                continue
+
+            if clave != clave_maestra:
+                print("❌ Clave maestra incorrecta. No se puede crear la cuenta.")
+                continue
+
+            if correo.lower() in usuarios_df["correo"].str.lower().values:
+                print("❌ Ya existe una cuenta con ese correo.")
+                continue
+
+            nuevo = pd.DataFrame([[correo, contraseña_nueva]], columns=["correo", "contraseña"])
+            usuarios_df = pd.concat([usuarios_df, nuevo], ignore_index=True)
+            guardar_usuarios(usuarios_df)
+            print("✅ Cuenta creada exitosamente. Ahora puedes iniciar sesión.")
+
+        elif opcion == "3":
+            print("👋 Saliendo del sistema.")
             return False
-        contraseña = input("🔒 Contraseña: ")
 
-        if usuario == usuarios["username"] and contraseña == usuarios["password"]:
-            print("✅ Inicio de sesión exitoso")
-            return True
         else:
-            print("❌ Usuario o contraseña incorrectos.")
+            print("❌ Opción inválida. Intente nuevamente.")
 
+# ------------------ HU3 ------------------ #
+
+def obtener_insumos_faltantes():
+    inv = cargar_excel(inventario)
+    dem = cargar_excel(demanda)
+    inv["producto_norm"] = inv["producto"].str.lower().str.strip()
+    dem["producto_norm"] = dem["producto"].str.lower().str.strip()
+    
+    merged = pd.merge(dem, inv, on="producto_norm", how="left", suffixes=("_dem", "_inv"))
+    faltantes = merged[(merged["cantidad"].isna()) | (merged["cantidad"] < merged["total_cantidad"])]
+
+    faltantes["cantidad"] = faltantes.apply(
+        lambda row: row["total_cantidad"] if pd.isna(row["cantidad"]) else row["total_cantidad"] - row["cantidad"],
+        axis=1
+    )
+    faltantes["id"] = faltantes["id"].fillna(-1).astype(int)
+    faltantes["producto"] = faltantes["producto_dem"]
+    return faltantes[["id", "producto", "cantidad"]].copy()
+
+solicitud_actual = pd.DataFrame()
+
+def menu_generar_solicitud():
+    global solicitud_actual
+    solicitud_actual = obtener_insumos_faltantes()
+
+    if solicitud_actual.empty:
+        print("\n✅ No hay productos faltantes. Toda la demanda está cubierta.")
+        return
+
+    while True:
+        print("\n=== SOLICITUD DE COMPRA DE INSUMOS ===")
+        print("1. Mostrar sugerencia de solicitud")
+        print("2. Editar solicitud")
+        print("3. Validar información")
+        print("4. Guardar solicitud")
+        print("5. Enviar solicitud")
+        print("6. Volver")
+        op = input("Seleccione una opción: ")
+
+        if op == "1":
+            print("\n📦 Insumos sugeridos para solicitar:")
+            print(solicitud_actual.to_string(index=False))
+
+        elif op == "2":
+            editar_solicitud()
+
+        elif op == "3":
+            validar_solicitud()
+
+        elif op == "4":
+            guardar_excel(solicitud_actual, os.path.join(os.path.dirname(inventario), "solicitud_compra.xlsx"))
+            print("✅ Solicitud guardada correctamente.")
+
+        elif op == "5":
+            enviar_solicitud()
+
+        elif op == "6":
+            break
+        else:
+            print("❌ Opción inválida.")
+
+def editar_solicitud():
+    global solicitud_actual
+    while True:
+        print("\n--- EDITAR SOLICITUD ---")
+        print("1. Agregar producto")
+        print("2. Eliminar producto")
+        print("3. Modificar cantidad")
+        print("4. Volver")
+        op = input("Seleccione una opción: ")
+
+        if op == "1":
+            nombre = input("Nombre del producto: ")
+            cantidad = input("Cantidad: ")
+            if not cantidad.isdigit() or int(cantidad) <= 0:
+                print("❌ Cantidad inválida.")
+                continue
+            nueva_fila = pd.DataFrame([[999, nombre.strip(), int(cantidad)]], columns=["id", "producto", "cantidad"])
+            solicitud_actual = pd.concat([solicitud_actual, nueva_fila], ignore_index=True)
+            print("✅ Producto agregado.")
+
+        elif op == "2":
+            nombre = input("Nombre del producto a eliminar: ").strip().lower()
+            original_len = len(solicitud_actual)
+            solicitud_actual = solicitud_actual[~solicitud_actual["producto"].str.lower().str.strip().eq(nombre)]
+            if len(solicitud_actual) < original_len:
+                print("✅ Producto eliminado.")
+            else:
+                print("❌ Producto no encontrado.")
+
+        elif op == "3":
+            nombre = input("Nombre del producto a modificar: ").strip().lower()
+            if nombre not in solicitud_actual["producto"].str.lower().str.strip().values:
+                print("❌ Producto no encontrado.")
+                continue
+            cantidad = input("Nueva cantidad: ")
+            if not cantidad.isdigit() or int(cantidad) <= 0:
+                print("❌ Cantidad inválida.")
+                continue
+            idx = solicitud_actual[solicitud_actual["producto"].str.lower().str.strip() == nombre].index[0]
+            solicitud_actual.at[idx, "cantidad"] = int(cantidad)
+            print("✅ Cantidad actualizada.")
+
+        elif op == "4":
+            break
+        else:
+            print("❌ Opción inválida.")
+
+def validar_solicitud():
+    errores = []
+    for _, row in solicitud_actual.iterrows():
+        if not row["producto"] or not isinstance(row["cantidad"], (int, float)):
+            errores.append(f"❌ Producto inválido o sin cantidad: {row.to_dict()}")
+        elif row["cantidad"] <= 0:
+            errores.append(f"❌ Cantidad inválida para producto '{row['producto']}': {row['cantidad']}")
+
+    if errores:
+        print("\n❌ Se encontraron errores en la solicitud:")
+        for e in errores:
+            print("-", e)
+    else:
+        print("✅ Toda la información de la solicitud es válida.")
+
+def enviar_solicitud():
+    archivo = os.path.join(os.path.dirname(inventario), "solicitud_compra.xlsx")
+    if not os.path.exists(archivo):
+        print("❌ No se ha guardado la solicitud aún.")
+        return
+
+    email_remitente = "elcoordinadordecompras@gmail.com"
+    contraseña = "iocsdhwphxxhbzzp"
+    destinatario = "jurinconba@unal.edu.co"
+
+    mensaje = EmailMessage()
+    mensaje["Subject"] = "📋 Solicitud de compra de insumos"
+    mensaje["From"] = email_remitente
+    mensaje["To"] = destinatario
+    mensaje.set_content("Adjunto se encuentra la solicitud de compra de insumos para cumplir la demanda.")
+
+    with open(archivo, "rb") as f:
+        mensaje.add_attachment(
+            f.read(),
+            maintype="application",
+            subtype="vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            filename="solicitud_compra.xlsx"
+        )
+
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+            smtp.login(email_remitente, contraseña)
+            smtp.send_message(mensaje)
+            print("📧 Solicitud enviada correctamente.")
+    except Exception as e:
+        print("❌ Error al enviar la solicitud:", e)
 # ------------------ Menú principal ------------------ #
 def mostrar_menu_opciones():
     try:
@@ -555,7 +765,8 @@ def menu_envio():
         print("1. Generar lista de insumos listos para envío")
         print("2. Enviar lista de insumos listos al lider de produccion")
         print("3. Actualizar inventario")
-        print("4. Volver al menú principal")
+        print("4. Generar solicitud de compra de insumos")
+        print("5. Volver al menú principal")
 
         opcion = input("Seleccione una opción: ")
         
@@ -566,6 +777,8 @@ def menu_envio():
         elif opcion == "3":
             actualizar_inventario()
         elif opcion == "4":
+            menu_generar_solicitud()
+        elif opcion == "5":
             break
         else:
             print("❌ Opción inválida. Intente de nuevo.")
