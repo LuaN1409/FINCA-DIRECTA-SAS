@@ -669,6 +669,120 @@ def enviar_solicitud():
             print("📧 Solicitud enviada correctamente.")
     except Exception as e:
         print("❌ Error al enviar la solicitud:", e)
+
+# ------------------ HU6 ------------------ #
+# Ruta donde se guardará el archivo del reporte de defectuosos
+reporte_defectuosos = os.path.join(os.path.dirname(__file__), "data", "reporte_insumos_defectuosos.xlsx")
+
+def menu_reportar_defectuosos():
+    """
+    Este menú permite al usuario:
+    1. Crear un nuevo reporte de insumos defectuosos.
+    2. Guardar el reporte en un archivo Excel.
+    3. Enviar el reporte por correo al equipo encargado.
+    4. Salir del menú.
+    """
+    reporte = []  # Lista para almacenar temporalmente los reportes ingresados
+
+    while True:
+        print("\n=== REPORTE DE INSUMOS DEFECTUOSOS ===")
+        print("1. Crear nuevo reporte")
+        print("2. Guardar reporte en Excel")
+        print("3. Enviar reporte por correo")
+        print("4. Volver al menú anterior")
+        opcion = input("Seleccione una opción: ")
+
+        # Opción 1: Crear nuevo reporte
+        if opcion == "1":
+            reporte.clear()  # Limpia el reporte anterior si existía
+            while True:
+                proveedor = input("Nombre del proveedor: ").strip()
+                fecha = input("Fecha (YYYY-MM-DD): ").strip()
+                producto = input("Nombre del producto: ").strip()
+                defecto = input("Tipo de defecto (cantidad/calidad): ").strip().lower()
+                observaciones = input("Observaciones (opcional): ").strip()
+
+                # Validación del tipo de defecto
+                if defecto not in ["cantidad", "calidad"]:
+                    print("❌ Tipo de defecto inválido. Solo se permite 'cantidad' o 'calidad'.")
+                    continue
+
+                # Validación de la fecha
+                try:
+                    datetime.strptime(fecha, "%Y-%m-%d")
+                except ValueError:
+                    print("❌ Fecha inválida. Formato correcto: YYYY-MM-DD.")
+                    continue
+
+                # Confirmación antes de registrar
+                confirmar = input("¿Confirmar reporte? (y/n): ").strip().lower()
+                if confirmar == "y":
+                    # Validación de campos obligatorios
+                    if not proveedor or not producto or not defecto:
+                        print("❌ Faltan campos obligatorios.")
+                        continue
+
+                    # Se guarda temporalmente el reporte
+                    reporte.append([proveedor, fecha, producto, defecto, observaciones])
+                    print("✅ Reporte creado correctamente.")
+                    break
+                else:
+                    print("🔁 Reiniciando captura de datos...")
+
+        # Opción 2: Guardar el reporte en archivo Excel
+        elif opcion == "2":
+            if not reporte:
+                print("❌ No hay reporte cargado.")
+                continue
+            df = pd.DataFrame(reporte, columns=["proveedor", "fecha", "producto", "tipo_defecto", "observaciones"])
+            df.to_excel(reporte_defectuosos, index=False)
+            print(f"✅ Reporte guardado en '{reporte_defectuosos}'")
+
+        # Opción 3: Enviar el archivo Excel por correo
+        elif opcion == "3":
+            if not os.path.exists(reporte_defectuosos):
+                print("❌ No se ha generado ningún archivo aún.")
+                continue
+
+            # Parámetros del correo
+            archivo = reporte_defectuosos
+            email_remitente = "elcoordinadordecompras@gmail.com"
+            contraseña = "iocsdhwphxxhbzzp"  # Contraseña de aplicación
+            destinatario = "jurinconba@unal.edu.co"  # Correo de destino
+
+            # Crear el mensaje
+            mensaje = EmailMessage()
+            mensaje["Subject"] = "❗Reporte de Insumos Defectuosos"
+            mensaje["From"] = email_remitente
+            mensaje["To"] = destinatario
+            mensaje.set_content("Adjunto reporte de insumos defectuosos.")
+
+            # Adjuntar el archivo
+            with open(archivo, "rb") as f:
+                mensaje.add_attachment(
+                    f.read(),
+                    maintype="application",
+                    subtype="vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    filename="reporte_defectuosos.xlsx"
+                )
+
+            # Enviar el correo
+            try:
+                with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+                    smtp.login(email_remitente, contraseña)
+                    smtp.send_message(mensaje)
+                    print("📧 Reporte enviado correctamente.")
+            except Exception as e:
+                print("❌ Error al enviar el correo:", e)
+
+        # Opción 4: Salir del menú
+        elif opcion == "4":
+            break
+
+        else:
+            print("❌ Opción inválida.")
+
+
 # ------------------ Menú principal ------------------ #
 def mostrar_menu_opciones():
     try:
@@ -793,7 +907,8 @@ def menu_recepcion():
         print("2. Validar campos de ingreso de datos")
         print("3. Verificar cantidad y calidad del insumo")
         print("4. Ingresar insumos conformes al inventario")
-        print("5. Volver al menú principal")
+        print("5. Reportar insumos defectuosos")
+        print("6. Volver al menú principal")
         opcion = input("Elija una opción (1-5): ")
 
         if opcion == "1":
@@ -807,6 +922,8 @@ def menu_recepcion():
             ingresar_inventario(productos)
             productos = []
         elif opcion == "5":
+            menu_reportar_defectuosos()
+        elif opcion == "6":
             break
         else:
             print("Opción inválida.")
