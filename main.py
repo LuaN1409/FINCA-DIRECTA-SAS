@@ -782,6 +782,127 @@ def menu_reportar_defectuosos():
         else:
             print("❌ Opción inválida.")
 
+# ------------------ Módulo: Reportes de Solicitudes de Compra ------------------ #
+ruta_solicitudes = os.path.join(os.path.dirname(__file__), "data", "solicitudes_compras.xlsx")
+ruta_listos = os.path.join(os.path.dirname(__file__), "data", "insumos_listos_general.xlsx")
+
+reporte_solicitudes = pd.DataFrame()
+reporte_listos = pd.DataFrame()
+
+def filtrar_solicitudes_fecha():
+    global reporte_solicitudes
+    df = pd.read_excel(ruta_solicitudes)
+    if df.empty:
+        print("❌ No hay solicitudes registradas.")
+        return
+
+    ini = input("Ingrese la fecha de inicio (YYYY-MM-DD): ")
+    fin = input("Ingrese la fecha de fin (YYYY-MM-DD): ")
+
+    try:
+        df['fecha'] = pd.to_datetime(df['fecha'])
+        ini_dt = pd.to_datetime(ini)
+        fin_dt = pd.to_datetime(fin)
+        reporte_solicitudes = df[(df['fecha'] >= ini_dt) & (df['fecha'] <= fin_dt)]
+    except:
+        print("❌ Fechas inválidas.")
+        return
+
+    if reporte_solicitudes.empty:
+        print("🔍 No hay solicitudes en ese rango.")
+    else:
+        print("\n📄 Solicitudes disponibles:")
+        for i, row in reporte_solicitudes.groupby('id').first().iterrows():
+            print(f"ID: {i} | Fecha: {row['fecha'].date()} | Proveedor: {row['proveedor']}")
+
+def seleccionar_reporte_solicitud():
+    global reporte_solicitudes
+    if reporte_solicitudes.empty:
+        print("❌ Primero debes filtrar por fecha.")
+        return
+
+    id_sel = input("Ingrese el ID del reporte que desea ver: ")
+    if not id_sel.isdigit():
+        print("❌ ID inválido.")
+        return
+
+    id_sel = int(id_sel)
+    detalle = reporte_solicitudes[reporte_solicitudes['id'] == id_sel].copy()
+    if detalle.empty:
+        print("❌ ID no encontrado.")
+        return
+
+    archivo = os.path.join(os.path.dirname(ruta_solicitudes), f"reporte_solicitud_{id_sel}.xlsx")
+    detalle.to_excel(archivo, index=False)
+    print(f"\n✅ Reporte guardado en '{archivo}'")
+
+def descargar_reporte_solicitud():
+    carpeta = os.path.dirname(ruta_solicitudes)
+    archivos = [f for f in os.listdir(carpeta) if f.startswith("reporte_solicitud_") and f.endswith(".xlsx")]
+    if not archivos:
+        print("❌ No hay reportes generados.")
+    else:
+        print("📥 Reportes disponibles en la carpeta 'data/':")
+        for archivo in archivos:
+            print(" -", archivo)
+
+# ------------------ Módulo: Reportes de Insumos Listos ------------------ #
+def filtrar_listos_fecha():
+    global reporte_listos
+    df = pd.read_excel(ruta_listos)
+    if df.empty:
+        print("❌ No hay registros de insumos listos.")
+        return
+
+    ini = input("Ingrese la fecha de inicio (YYYY-MM-DD): ")
+    fin = input("Ingrese la fecha de fin (YYYY-MM-DD): ")
+
+    try:
+        df['fecha'] = pd.to_datetime(df['fecha'])
+        ini_dt = pd.to_datetime(ini)
+        fin_dt = pd.to_datetime(fin)
+        reporte_listos = df[(df['fecha'] >= ini_dt) & (df['fecha'] <= fin_dt)]
+    except:
+        print("❌ Fechas inválidas.")
+        return
+
+    if reporte_listos.empty:
+        print("🔍 No hay insumos listos en ese rango.")
+    else:
+        print("\n📄 Reportes disponibles:")
+        for i, row in reporte_listos.groupby('id').first().iterrows():
+            print(f"ID: {i} | Fecha: {row['fecha'].date()} | Producto: {row['producto']}")
+
+def seleccionar_reporte_listos():
+    global reporte_listos
+    if reporte_listos.empty:
+        print("❌ Primero debes filtrar por fecha.")
+        return
+
+    id_sel = input("Ingrese el ID del reporte que desea ver: ")
+    if not id_sel.isdigit():
+        print("❌ ID inválido.")
+        return
+
+    id_sel = int(id_sel)
+    detalle = reporte_listos[reporte_listos['id'] == id_sel].copy()
+    if detalle.empty:
+        print("❌ ID no encontrado.")
+        return
+
+    archivo = os.path.join(os.path.dirname(ruta_listos), f"reporte_insumos_listos_{id_sel}.xlsx")
+    detalle.to_excel(archivo, index=False)
+    print(f"\n✅ Reporte guardado en '{archivo}'")
+
+def descargar_reporte_listos():
+    carpeta = os.path.dirname(ruta_listos)
+    archivos = [f for f in os.listdir(carpeta) if f.startswith("reporte_insumos_listos_") and f.endswith(".xlsx")]
+    if not archivos:
+        print("❌ No hay reportes generados.")
+    else:
+        print("📥 Reportes disponibles en la carpeta 'data/':")
+        for archivo in archivos:
+            print(" -", archivo)
 
 # ------------------ Menú principal ------------------ #
 def mostrar_menu_opciones():
@@ -798,6 +919,8 @@ def mostrar_menu_opciones():
         print("3. Verificar disponibilidad de insumos (HU2)")
         print("4. Recepcion de insumos (HU5)")
         print("5. Reportes de recepción de insumos (HU7)")
+        print("6. Reportes de solicitudes de compra (HU8)")
+        print("7. Reportes de insumos listos para envío (HU10)")
         print("0. Cerrar sesión")
 
         opcion = input("Elija una opción: ")
@@ -812,6 +935,10 @@ def mostrar_menu_opciones():
                 menu_recepcion()
             case "5":
                 menu_reportes()
+            case "6":
+                menu_reportes_solicitudes()
+            case "7":
+                menu_reportes_insumos_listos()
             case "0":
                 print("👋 Cerrando sesión...")
                 break
@@ -948,9 +1075,47 @@ def menu_reportes():
         else:
             print("❌ Opción inválida")
 
+# ------------------ Submenú: Reportes de solicitud de compra ------------------ #
+def menu_reportes_solicitudes():
+    while True:
+        print("\n=== REPORTES DE SOLICITUDES DE COMPRA ===")
+        print("1. Filtrar por fechas")
+        print("2. Seleccionar reporte específico")
+        print("3. Descargar reporte")
+        print("4. Volver al menú principal")
+        op = input("Seleccione una opción: ")
+        if op == "1":
+            filtrar_solicitudes_fecha()
+        elif op == "2":
+            seleccionar_reporte_solicitud()
+        elif op == "3":
+            descargar_reporte_solicitud()
+        elif op == "4":
+            break
+        else:
+            print("❌ Opción inválida")
+
+# ------------------ Submenú: Reportes de insumos listos para envio ------------------ #
+def menu_reportes_insumos_listos():
+    while True:
+        print("\n=== REPORTES DE INSUMOS LISTOS PARA ENVÍO ===")
+        print("1. Filtrar por fechas")
+        print("2. Seleccionar reporte específico")
+        print("3. Descargar reporte")
+        print("4. Volver al menú principal")
+        op = input("Seleccione una opción: ")
+        if op == "1":
+            filtrar_listos_fecha()
+        elif op == "2":
+            seleccionar_reporte_listos()
+        elif op == "3":
+            descargar_reporte_listos()
+        elif op == "4":
+            break
+        else:
+            print("❌ Opción inválida")
+
 # ------------------ Punto de entrada ------------------ #
 if __name__ == "__main__":
     if iniciar_sesion():
         mostrar_menu_opciones()
-
-
