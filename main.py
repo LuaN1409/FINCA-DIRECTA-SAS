@@ -36,72 +36,84 @@ class FiltroPedidos:
             raise RuntimeError(f"Error al cargar el archivo: {e}")
 
     def filtrar_por_fecha(self):
-        inicio = input("📅 Fecha desde (YYYY-MM-DD o ENTER para omitir): ")
-        fin = input("📅 Fecha hasta (YYYY-MM-DD o ENTER para omitir): ")
-        try:
-            if inicio:
+        while True:
+            inicio = input("📅 Fecha desde (YYYY-MM-DD): ").strip()
+            fin = input("📅 Fecha hasta (YYYY-MM-DD): ").strip()
+
+            if not inicio or not fin:
+                print("❌ Debes ingresar ambas fechas para aplicar el filtro.")
+                continue
+
+            try:
                 inicio_dt = pd.to_datetime(inicio)
-            else:
-                inicio_dt = self.df['fecha'].min()
-            if fin:
                 fin_dt = pd.to_datetime(fin)
-            else:
-                fin_dt = self.df['fecha'].max()
 
-            self.df_filtrado = self.df_filtrado[
-                self.df_filtrado['fecha'].between(inicio_dt, fin_dt)
-            ]
+                self.df_filtrado = self.df[
+                    self.df['fecha'].between(inicio_dt, fin_dt)
+                ]
 
-            if self.df_filtrado.empty:
-                print("⚠ No se encontraron pedidos en el rango de fechas indicado.")
-            else:
-                print(f"✅ Pedidos filtrados desde {inicio_dt.date()} hasta {fin_dt.date()}.")
-                print("📦 ID de pedido:")
-                print(self.df_filtrado['id'].to_string(index=False))
-        except Exception:
-            print("⚠ Formato de fecha inválido. Intenta con el formato YYYY-MM-DD.")
+                if self.df_filtrado.empty:
+                    print("⚠ No se encontraron pedidos en el rango de fechas indicado.")
+                else:
+                    print(f"✅ Pedidos filtrados desde {inicio_dt.date()} hasta {fin_dt.date()}.")
+                    print("📦 ID de pedido:")
+                    print(self.df_filtrado['id'].to_string(index=False))
+                break  # salir del bucle tras éxito
+            except Exception:
+                print("⚠ Formato de fecha inválido. Intenta con el formato YYYY-MM-DD.")
 
     def filtrar_por_producto(self):
-        nombre = input("📦 Nombre del producto (puede ser parcial o ENTER para omitir): ")
-        if nombre:
-            self.df_filtrado = self.df_filtrado[
-                self.df_filtrado['producto'].str.lower().str.contains(nombre.lower(), na=False)
+        while True:
+            nombre = input("📦 Nombre del producto: ").strip()
+            if not nombre:
+                print("❌ Debes ingresar un nombre de producto.")
+                continue
+
+            self.df_filtrado = self.df[
+                self.df['producto'].str.lower().str.contains(nombre.lower(), na=False)
             ]
+
             if self.df_filtrado.empty:
-                print(f"⚠ No se encontraron pedidos del producto '{nombre}'.")
+                print(f"⚠ No se encontraron pedidos del producto '{nombre}'. Intenta con otro nombre.")
             else:
                 print(f"🔍 Pedidos con producto '{nombre}':")
                 print("📦 ID de pedido:")
                 print(self.df_filtrado['id'].to_string(index=False))
+                break
 
     def filtrar_combinado(self):
-        nombre = input("📦 Nombre del producto: ")
-        inicio = input("📅 Fecha desde (YYYY-MM-DD o ENTER para omitir): ")
-        fin = input("📅 Fecha hasta (YYYY-MM-DD o ENTER para omitir): ")
-        try:
-            df_temp = self.df.copy()
-            if nombre:
+        nombre = input("📦 Nombre del producto: ").strip()
+        if not nombre:
+            print("❌ Debes ingresar un nombre de producto.")
+            return
+
+        while True:
+            inicio = input("📅 Fecha desde (YYYY-MM-DD): ").strip()
+            fin = input("📅 Fecha hasta (YYYY-MM-DD): ").strip()
+
+            if not inicio or not fin:
+                print("❌ Debes ingresar ambas fechas para aplicar el filtro.")
+                continue
+
+            try:
+                df_temp = self.df.copy()
                 df_temp = df_temp[df_temp['producto'].str.lower().str.contains(nombre.lower(), na=False)]
 
-            if inicio:
                 inicio_dt = pd.to_datetime(inicio)
-            else:
-                inicio_dt = df_temp['fecha'].min()
-            if fin:
                 fin_dt = pd.to_datetime(fin)
-            else:
-                fin_dt = df_temp['fecha'].max()
 
-            df_temp = df_temp[df_temp['fecha'].between(inicio_dt, fin_dt)]
-            self.df_filtrado = df_temp
+                df_temp = df_temp[df_temp['fecha'].between(inicio_dt, fin_dt)]
+                self.df_filtrado = df_temp
 
-            if self.df_filtrado.empty:
-                print("⚠ No se encontraron pedidos con ese producto y rango de fechas.")
-            else:
-                print(f"🔍 Pedidos con '{nombre}' entre {inicio_dt.date()} y {fin_dt.date()}:")
-                print(self.df_filtrado['id'].to_string(index=False))
-        except Exception:
-            print("⚠ Error al aplicar filtros combinados.")
+                if self.df_filtrado.empty:
+                    print("⚠ No se encontraron pedidos con ese producto y rango de fechas.")
+                else:
+                    print(f"🔍 Pedidos con '{nombre}' entre {inicio_dt.date()} y {fin_dt.date()}:")
+                    print(self.df_filtrado['id'].to_string(index=False))
+                break  # salir del bucle tras éxito
+            except Exception:
+                print("⚠ Formato de fecha inválido. Intenta con el formato YYYY-MM-DD.")
+
 
     def mostrar_detalle_pedido(self):
         if self.df_filtrado.empty:
@@ -759,6 +771,7 @@ def menu_reportar_defectuosos():
             # Parámetros del correo
             archivo = reporte_defectuosos
             email_remitente = "elcoordinadordecompras@gmail.com"
+
             contraseña = "iocsdhwphxxhbzzp"  # Contraseña de aplicación
             destinatario = pedir_correo() # Correo de destino
 
