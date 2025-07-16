@@ -1,6 +1,7 @@
 import pandas as pd
 import os
 import smtplib
+import re
 from datetime import datetime
 from email.message import EmailMessage
 
@@ -516,7 +517,18 @@ def iniciar_sesion():
             print("❌ Opción inválida. Intente nuevamente.")
 
 # ------------------ HU3 ------------------ #
+def correo_valido(correo):
+    patron = r"^[\w\.-]+@[\w\.-]+\.\w{2,}$"
+    return re.match(patron, correo)
 
+def pedir_correo():
+    while True:
+        destinatario = input("📧 Ingrese el correo del destinatario: ").strip()
+        if correo_valido(destinatario):
+            return destinatario
+        else:
+            print("❌ El correo ingresado no es válido. Verifica el formato (ej: ejemplo@dominio.com). Inténtalo de nuevo.")
+                    
 def obtener_insumos_faltantes():
     inv = cargar_excel(inventario)
     dem = cargar_excel(demanda)
@@ -646,8 +658,8 @@ def enviar_solicitud():
 
     email_remitente = "elcoordinadordecompras@gmail.com"
     contraseña = "iocsdhwphxxhbzzp"
-    destinatario = "jurinconba@unal.edu.co"
-
+    destinatario = pedir_correo() 
+    
     mensaje = EmailMessage()
     mensaje["Subject"] = "📋 Solicitud de compra de insumos"
     mensaje["From"] = email_remitente
@@ -748,7 +760,7 @@ def menu_reportar_defectuosos():
             archivo = reporte_defectuosos
             email_remitente = "elcoordinadordecompras@gmail.com"
             contraseña = "iocsdhwphxxhbzzp"  # Contraseña de aplicación
-            destinatario = "jurinconba@unal.edu.co"  # Correo de destino
+            destinatario = pedir_correo() # Correo de destino
 
             # Crear el mensaje
             mensaje = EmailMessage()
