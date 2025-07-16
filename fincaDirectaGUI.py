@@ -1,20 +1,73 @@
 import tkinter as tk
-from tkinter import messagebox
+import tkinter as tk
+from tkinter import messagebox, ttk
 from main import (
     FiltroPedidos, pedidos, menu_consulta, menu_inventario, menu_envio,
     menu_recepcion, menu_reportes, iniciar_sesion
 )
 
-COLOR_BG = "#f4f6fb"
-COLOR_FRAME = "#e3eafc"
-COLOR_BTN = "#4f8cff" 
+
+# --- NUEVA PALETA Y FUENTES MODERNAS ---
+COLOR_BG = "#FAF4DC"         # Crema
+COLOR_FRAME = "#FFF8E1"      # Más claro para frames
+COLOR_BTN = "#E4901D"        # Naranja
 COLOR_BTN_TEXT = "#fff"
-COLOR_TITLE = "#2a3b8f"
-COLOR_LABEL = "#222"
-FONT_TITLE = ("Arial", 18, "bold")
-FONT_SUBTITLE = ("Arial", 14, "bold")
-FONT_LABEL = ("Arial", 11)
-FONT_BTN = ("Arial", 11, "bold")
+COLOR_TITLE = "#5B6043"      # Verde oliva
+COLOR_LABEL = "#5B6043"      # Verde oliva
+COLOR_ACCENT = "#FDC304"     # Amarillo
+
+# Fuentes modernas (usar Arial Rounded o fallback a Arial)
+FONT_TITLE = ("Arial Rounded MT Bold", 24, "bold")
+FONT_SUBTITLE = ("Arial Rounded MT Bold", 16, "bold")
+FONT_LABEL = ("Segoe UI", 12)
+FONT_BTN = ("Segoe UI Semibold", 13, "bold")
+
+def style_modern_widgets(root):
+    style = ttk.Style(root)
+    style.theme_use('clam')
+    style.configure("TFrame", background=COLOR_FRAME)
+    style.configure("TLabel", background=COLOR_FRAME, foreground=COLOR_LABEL, font=FONT_LABEL)
+    style.configure("TButton", background=COLOR_BTN, foreground=COLOR_BTN_TEXT, font=FONT_BTN, borderwidth=0, focusthickness=3, focuscolor=COLOR_ACCENT)
+    style.map("TButton",
+        background=[('active', COLOR_ACCENT), ('pressed', COLOR_BTN)],
+        foreground=[('active', COLOR_TITLE), ('pressed', COLOR_BTN_TEXT)]
+    )
+    style.configure("Treeview",
+        background=COLOR_BG,
+        fieldbackground=COLOR_BG,
+        foreground=COLOR_LABEL,
+        font=FONT_LABEL,
+        rowheight=32,
+        borderwidth=0
+    )
+    style.configure("Treeview.Heading",
+        background=COLOR_BTN,
+        foreground=COLOR_BTN_TEXT,
+        font=FONT_BTN
+    )
+    style.map("Treeview.Heading",
+        background=[('active', COLOR_ACCENT)])
+
+class ModernFrame(tk.Frame):
+    def __init__(self, master, **kwargs):
+        super().__init__(master, bg=COLOR_FRAME, **kwargs)
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(0, weight=1)
+
+def set_fullscreen_responsive(root):
+    def resize(event=None):
+        w, h = root.winfo_width(), root.winfo_height()
+        scale = min(w/1280, h/720)
+        # Escalar fuentes globalmente
+        new_title = (FONT_TITLE[0], int(24*scale), "bold")
+        new_subtitle = (FONT_SUBTITLE[0], int(16*scale), "bold")
+        new_label = (FONT_LABEL[0], int(12*scale))
+        new_btn = (FONT_BTN[0], int(13*scale), "bold")
+        globals()['FONT_TITLE'] = new_title
+        globals()['FONT_SUBTITLE'] = new_subtitle
+        globals()['FONT_LABEL'] = new_label
+        globals()['FONT_BTN'] = new_btn
+    root.bind('<Configure>', resize)
 
 class FincaDirectaGUI:
     def __init__(self, root):
@@ -1328,5 +1381,9 @@ class FincaDirectaGUI:
 
 if __name__ == "__main__":
     root = tk.Tk()
+    style_modern_widgets(root)
+    set_fullscreen_responsive(root)
     app = FincaDirectaGUI(root)
+    root.state('zoomed')  # Iniciar en pantalla completa
     root.mainloop()
+
