@@ -5,6 +5,108 @@ import re
 from datetime import datetime
 from email.message import EmailMessage
 
+# === Funciones helper para GUI ===
+def filtrar_pedidos_por_fecha(df, inicio, fin):
+    try:
+        # Si ambos campos están vacíos, mostrar todos los pedidos
+        if not inicio and not fin:
+            inicio_dt = df['fecha'].min()
+            fin_dt = df['fecha'].max()
+        else:
+            if inicio:
+                inicio_dt = pd.to_datetime(inicio)
+            else:
+                inicio_dt = df['fecha'].min()
+            if fin:
+                fin_dt = pd.to_datetime(fin)
+            else:
+                fin_dt = df['fecha'].max()
+        if pd.isna(inicio_dt) or pd.isna(fin_dt):
+            return df.iloc[0:0], "⚠ No hay datos de fechas disponibles.", []
+        df_filtrado = df[df['fecha'].between(inicio_dt, fin_dt)]
+        ids = df_filtrado['id'].to_list() if not df_filtrado.empty else []
+        if df_filtrado.empty:
+            return df_filtrado, "⚠ No se encontraron pedidos en el rango.", ids
+        else:
+            msg = f"✅ Pedidos filtrados desde {inicio_dt.date()} hasta {fin_dt.date()}."
+            return df_filtrado, msg, ids
+    except Exception:
+        return df.iloc[0:0], "⚠ Formato de fecha inválido.", []
+
+def filtrar_pedidos_por_producto(df, nombre):
+    if not nombre:
+        return df.iloc[0:0], "⚠ Debe ingresar un nombre de producto.", []
+    df_filtrado = df[df['producto'].str.lower().str.contains(nombre.lower(), na=False)]
+    ids = df_filtrado['id'].to_list() if not df_filtrado.empty else []
+    if df_filtrado.empty:
+        return df_filtrado, f"⚠ No se encontraron pedidos del producto '{nombre}'.", ids
+    else:
+        return df_filtrado, f"🔍 Pedidos con producto '{nombre}':", ids
+
+def filtrar_pedidos_combinado(df, nombre, inicio, fin):
+    df_temp = df.copy()
+    if nombre:
+        df_temp = df_temp[df_temp['producto'].str.lower().str.contains(nombre.lower(), na=False)]
+    try:
+        if not inicio and not fin:
+            inicio_dt = df_temp['fecha'].min()
+            fin_dt = df_temp['fecha'].max()
+        else:
+            if inicio:
+                inicio_dt = pd.to_datetime(inicio)
+            else:
+                inicio_dt = df_temp['fecha'].min()
+            if fin:
+                fin_dt = pd.to_datetime(fin)
+            else:
+                fin_dt = df_temp['fecha'].max()
+        if pd.isna(inicio_dt) or pd.isna(fin_dt):
+            return df_temp.iloc[0:0], "⚠ No hay datos de fechas disponibles.", []
+        df_temp = df_temp[df_temp['fecha'].between(inicio_dt, fin_dt)]
+        ids = df_temp['id'].to_list() if not df_temp.empty else []
+        if df_temp.empty:
+            return df_temp, "⚠ No se encontraron pedidos con esos criterios.", ids
+        else:
+            msg = f"✅ Pedidos filtrados: producto '{nombre}' desde {inicio_dt.date()} hasta {fin_dt.date()}."
+            return df_temp, msg, ids
+    except Exception:
+        return df_temp.iloc[0:0], "⚠ Formato de fecha inválido.", []
+
+def obtener_detalle_pedido(df, pedido_id):
+    if df.empty:
+        return "❌ No hay datos de pedidos disponibles."
+    detalle = df[df['id'].astype(str) == str(pedido_id)]
+    if not detalle.empty:
+        fila = detalle.iloc[0]
+        texto = (
+            "📌 Detalle del pedido:\n"
+            f"- ID: {fila.get('id','')}\n"
+            f"- Fecha: {fila.get('fecha','')}\n"
+            f"- Cliente: {fila.get('cliente','')}\n"
+            f"- Cedula: {fila.get('cedula','')}\n"
+            f"- Direccion: {fila.get('direccion','')}\n"
+            f"- Producto: {fila.get('producto','')}\n"
+            f"- Cantidad: {fila.get('cantidad','')}\n"
+            f"- Fecha_entrega: {fila.get('fecha_entrega','')}\n"
+        )
+        return texto
+    else:
+        return "❌ No se encontró el pedido especificado."
+
+def exportar_resultados(df_filtrado):
+    demanda_path = os.path.join(os.path.dirname(__file__), "data", "demanda.xlsx")
+    if df_filtrado.empty:
+        return "⚠ No hay datos para exportar.", "orange"
+    try:
+        resumen = df_filtrado.groupby('producto', as_index=False)['cantidad'].sum()
+        resumen.columns = ['producto', 'total_cantidad']
+        resumen.to_excel(demanda_path, index=False)
+        return f"✅ Resultados exportados a '{demanda_path}'", "green"
+    except PermissionError:
+        return f"❌ No se pudo exportar '{demanda_path}' porque está abierto en otro programa (como Excel).\n🔁 Por favor, ciérralo y vuelve a intentarlo.", "red"
+    except Exception as e:
+        return f"❌ Error al exportar: {e}", "red"
+
 # ------------------ Rutas relativas a archivos Excel ------------------ #
 pedidos = os.path.join(os.path.dirname(__file__), "data", "pedidos_granja.xlsx")
 inventario = os.path.join(os.path.dirname(__file__), "data", "inventario.xlsx")
