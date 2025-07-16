@@ -20,10 +20,26 @@ class FincaDirectaGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Sistema Finca Directa")
-        self.root.geometry("500x500")
+        self.root.geometry("900x600")
         self.root.configure(bg=COLOR_BG)
         self.filtro = None
+        self.reportes_filtrados = None
+        self.fullscreen = False
+        self.root.bind('<F11>', self.toggle_fullscreen)
+        self.root.bind('<Escape>', self.exit_fullscreen)
         self.mostrar_login()
+
+    def toggle_fullscreen(self, event=None):
+        self.fullscreen = not self.fullscreen
+        self.root.attributes("-fullscreen", self.fullscreen)
+        # For Windows, maximize if not fullscreen
+        if not self.fullscreen:
+            self.root.state('zoomed')
+
+    def exit_fullscreen(self, event=None):
+        self.fullscreen = False
+        self.root.attributes("-fullscreen", False)
+        self.root.state('zoomed')
 
     def limpiar_ventana(self):
         for widget in self.root.winfo_children():
@@ -31,7 +47,9 @@ class FincaDirectaGUI:
 
     def crear_frame(self):
         frame = tk.Frame(self.root, bg=COLOR_FRAME, bd=2, relief="groove")
-        frame.pack(pady=30, padx=30, fill="both", expand=True)
+        frame.pack(pady=10, padx=10, fill="both", expand=True)
+        frame.grid_rowconfigure(0, weight=1)
+        frame.grid_columnconfigure(0, weight=1)
         return frame
 
     def mostrar_login(self):
@@ -291,9 +309,6 @@ class FincaDirectaGUI:
         except Exception as e:
             resultado_label.config(text=f"❌ Error al exportar: {e}", fg="red")
         tk.Button(frame, text="Volver al menú anterior", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=self.abrir_menu_consulta).pack(pady=10)
-
-        for texto, comando in opciones:
-            tk.Button(frame, text=texto, width=40, font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=comando).pack(pady=4)
 
     def reiniciar_filtros_gui(self):
         self.filtro.reiniciar_filtros()
@@ -757,10 +772,10 @@ class FincaDirectaGUI:
         tk.Label(frame, text="Filtrar reportes por fechas", font=FONT_SUBTITLE, fg=COLOR_TITLE, bg=COLOR_FRAME).pack(pady=10)
         tk.Label(frame, text="Ingrese la fecha de inicio (YYYY-MM-DD):", font=FONT_LABEL, bg=COLOR_FRAME).pack()
         fecha_ini_entry = tk.Entry(frame, font=FONT_LABEL)
-        fecha_ini_entry.pack(pady=2)
+        fecha_ini_entry.pack(pady=2, fill="x", expand=True)
         tk.Label(frame, text="Ingrese la fecha de fin (YYYY-MM-DD):", font=FONT_LABEL, bg=COLOR_FRAME).pack()
         fecha_fin_entry = tk.Entry(frame, font=FONT_LABEL)
-        fecha_fin_entry.pack(pady=2)
+        fecha_fin_entry.pack(pady=2, fill="x", expand=True)
         resultado_frame = tk.Frame(frame, bg=COLOR_FRAME)
         resultado_frame.pack(pady=10, fill="both", expand=True)
         self.reportes_filtrados = None  # Limpiar filtro previo
@@ -785,13 +800,17 @@ class FincaDirectaGUI:
                 else:
                     tk.Label(resultado_frame, text="📄 Reportes disponibles:", font=FONT_LABEL, fg=COLOR_TITLE, bg=COLOR_FRAME).pack(anchor="w")
                     columnas = ("ID", "Pedido", "Fecha", "Proveedor")
-                    tree = ttk.Treeview(resultado_frame, columns=columnas, show='headings', height=8)
+                    tree = ttk.Treeview(resultado_frame, columns=columnas, show='headings')
                     for col in columnas:
                         tree.heading(col, text=col)
-                        tree.column(col, anchor="center", width=120)
+                        tree.column(col, anchor="center", width=150, stretch=True)
                     for _, row in filtrado.iterrows():
                         tree.insert("", "end", values=(row['id'], row['numero_pedido'], row['fecha'].strftime('%Y-%m-%d'), row['proveedor']))
                     tree.pack(fill="both", expand=True)
+                    # Scrollbar
+                    vsb = ttk.Scrollbar(resultado_frame, orient="vertical", command=tree.yview)
+                    tree.configure(yscrollcommand=vsb.set)
+                    vsb.pack(side='right', fill='y')
             except Exception:
                 tk.Label(resultado_frame, text="❌ Formato de fecha inválido.", fg="red", bg=COLOR_FRAME, font=FONT_LABEL).pack()
                 self.reportes_filtrados = None
@@ -859,8 +878,10 @@ class FincaDirectaGUI:
             tk.Label(frame, text="❌ No hay reporte generado para descargar. Primero selecciona uno.", fg="red", bg=COLOR_FRAME, font=FONT_LABEL).pack(pady=10)
         else:
             tk.Label(frame, text="📥 Reportes disponibles en la carpeta 'data/':", font=FONT_LABEL, fg=COLOR_TITLE, bg=COLOR_FRAME).pack(pady=10, anchor="w")
+            lista_frame = tk.Frame(frame, bg=COLOR_FRAME)
+            lista_frame.pack(fill="both", expand=True)
             for archivo in archivos:
-                tk.Label(frame, text=f" - {archivo}", font=FONT_LABEL, fg="#222", bg=COLOR_FRAME, anchor="w", justify="left").pack(anchor="w")
+                tk.Label(lista_frame, text=f" - {archivo}", font=FONT_LABEL, fg="#222", bg=COLOR_FRAME, anchor="w", justify="left").pack(anchor="w")
         tk.Button(frame, text="Volver al menú anterior", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=self.abrir_menu_reportes).pack(pady=10)
 
 if __name__ == "__main__":
