@@ -69,7 +69,35 @@ class FincaDirectaGUI:
                 self.mostrar_menu_principal()
             else:
                 messagebox.showerror("Error", "Usuario o contraseña incorrectos.")
-        tk.Button(frame, text="Ingresar", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=intentar_login).pack(pady=20)
+        tk.Button(frame, text="Ingresar", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=intentar_login).pack(pady=10)
+        # Nuevo botón para crear usuario
+        tk.Button(frame, text="Crear usuario", font=FONT_BTN, bg="#6c757d", fg=COLOR_BTN_TEXT, command=self.mostrar_crear_usuario).pack(pady=5)
+        # Nuevo botón para salir
+        tk.Button(frame, text="Salir del sistema", font=FONT_BTN, bg="#e74c3c", fg=COLOR_BTN_TEXT, command=self.root.quit).pack(pady=5)
+
+    def mostrar_crear_usuario(self):
+        self.limpiar_ventana()
+        frame = self.crear_frame()
+        tk.Label(frame, text="CREAR NUEVO USUARIO", font=FONT_TITLE, fg=COLOR_TITLE, bg=COLOR_FRAME).pack(pady=20)
+        tk.Label(frame, text="Nuevo usuario:", font=FONT_LABEL, bg=COLOR_FRAME).pack()
+        usuario_entry = tk.Entry(frame, font=FONT_LABEL)
+        usuario_entry.pack(pady=5)
+        tk.Label(frame, text="Contraseña:", font=FONT_LABEL, bg=COLOR_FRAME).pack()
+        contraseña_entry = tk.Entry(frame, show="*", font=FONT_LABEL)
+        contraseña_entry.pack(pady=5)
+        def crear_usuario():
+            usuario = usuario_entry.get().strip()
+            contraseña = contraseña_entry.get().strip()
+            # Aquí deberías llamar a la función de main.py para crear usuario
+            from main import crear_usuario
+            exito, mensaje = crear_usuario(usuario, contraseña)
+            if exito:
+                messagebox.showinfo("Usuario", mensaje)
+                self.mostrar_login()
+            else:
+                messagebox.showerror("Error", mensaje)
+        tk.Button(frame, text="Crear", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=crear_usuario).pack(pady=10)
+        tk.Button(frame, text="Volver", font=FONT_BTN, bg="#6c757d", fg=COLOR_BTN_TEXT, command=self.mostrar_login).pack(pady=5)
 
     def mostrar_menu_principal(self):
         self.limpiar_ventana()
@@ -82,6 +110,8 @@ class FincaDirectaGUI:
             ("Verificar disponibilidad de insumos", self.abrir_menu_envio),
             ("Recepción de insumos", self.abrir_menu_recepcion),
             ("Reportes de recepción de insumos", self.abrir_menu_reportes),
+            ("Reportes de solicitudes de compra", self.abrir_menu_reportes_solicitudes),
+            ("Reportes de insumos listos para envío", self.abrir_menu_reportes_insumos_listos),  
             ("Cerrar sesión", self.mostrar_login)
         ]
         for texto, comando in opciones:
@@ -477,7 +507,8 @@ class FincaDirectaGUI:
             ("1. Generar lista de insumos listos para envío", self.generar_lista_envio_gui),
             ("2. Enviar lista de insumos listos al lider de produccion", self.enviar_lista_lider_gui),
             ("3. Actualizar inventario", self.actualizar_inventario_gui),
-            ("4. Volver al menú principal", self.mostrar_menu_principal)
+            ("4. Generar solicitud de compra de insumos", self.generar_solicitud_compra_gui), 
+            ("5. Volver al menú principal", self.mostrar_menu_principal)
         ]
         for texto, comando in opciones:
             tk.Button(frame, text=texto, width=40, font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=comando).pack(pady=4)
@@ -545,7 +576,8 @@ class FincaDirectaGUI:
             ("2. Validar campos de ingreso de datos", self.validar_campos_gui),
             ("3. Verificar cantidad y calidad del insumo", self.verificar_cantidad_calidad_gui),
             ("4. Ingresar insumos conformes al inventario", self.ingresar_insumos_inventario_gui),
-            ("5. Volver al menú principal", self.mostrar_menu_principal)
+            ("5. Reportar insumos defectuosos", self.abrir_menu_insumos_defectuosos),
+            ("6. Volver al menú principal", self.mostrar_menu_principal)
         ]
         for texto, comando in opciones:
             tk.Button(frame, text=texto, width=40, font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=comando).pack(pady=4)
@@ -796,7 +828,7 @@ class FincaDirectaGUI:
                 filtrado = df_entregas[(df_entregas['fecha'] >= ini) & (df_entregas['fecha'] <= fin)]
                 self.reportes_filtrados = filtrado.copy()  # Guardar filtro
                 if filtrado.empty:
-                    tk.Label(resultado_frame, text="🔍 No hay entregas en ese rango de fechas.", fg="red", bg=COLOR_FRAME, font=FONT_LABEL).pack()
+                    tk.Label(resultado_frame, text="🔍 No hay entregas in ese rango de fechas.", fg="red", bg=COLOR_FRAME, font=FONT_LABEL).pack()
                 else:
                     tk.Label(resultado_frame, text="📄 Reportes disponibles:", font=FONT_LABEL, fg=COLOR_TITLE, bg=COLOR_FRAME).pack(anchor="w")
                     columnas = ("ID", "Pedido", "Fecha", "Proveedor")
@@ -883,6 +915,416 @@ class FincaDirectaGUI:
             for archivo in archivos:
                 tk.Label(lista_frame, text=f" - {archivo}", font=FONT_LABEL, fg="#222", bg=COLOR_FRAME, anchor="w", justify="left").pack(anchor="w")
         tk.Button(frame, text="Volver al menú anterior", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=self.abrir_menu_reportes).pack(pady=10)
+
+    def abrir_menu_reportes_solicitudes(self):
+        self.limpiar_ventana()
+        frame = self.crear_frame()
+        tk.Label(frame, text="REPORTES DE SOLICITUDES DE COMPRA", font=FONT_SUBTITLE, fg=COLOR_TITLE, bg=COLOR_FRAME).pack(pady=15)
+        opciones = [
+            ("1. Filtrar por fechas", self.filtrar_reportes_solicitudes_por_fechas_gui),
+            ("2. Seleccionar reporte específico", self.seleccionar_reporte_solicitud_gui),
+            ("3. Descargar reporte", self.descargar_reporte_solicitud_gui),
+            ("4. Volver al menú principal", self.mostrar_menu_principal)
+        ]
+        for texto, comando in opciones:
+            tk.Button(frame, text=texto, width=40, font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=comando).pack(pady=4)
+
+    def filtrar_reportes_solicitudes_por_fechas_gui(self):
+        import pandas as pd
+        from main import ruta_solicitudes
+        from tkinter import ttk
+        self.limpiar_ventana()
+        frame = self.crear_frame()
+        tk.Label(frame, text="Filtrar reportes por fechas", font=FONT_SUBTITLE, fg=COLOR_TITLE, bg=COLOR_FRAME).pack(pady=10)
+        tk.Label(frame, text="Ingrese la fecha de inicio (YYYY-MM-DD):", font=FONT_LABEL, bg=COLOR_FRAME).pack()
+        fecha_ini_entry = tk.Entry(frame, font=FONT_LABEL)
+        fecha_ini_entry.pack(pady=2, fill="x", expand=True)
+        tk.Label(frame, text="Ingrese la fecha de fin (YYYY-MM-DD):", font=FONT_LABEL, bg=COLOR_FRAME).pack()
+        fecha_fin_entry = tk.Entry(frame, font=FONT_LABEL)
+        fecha_fin_entry.pack(pady=2, fill="x", expand=True)
+        resultado_frame = tk.Frame(frame, bg=COLOR_FRAME)
+        resultado_frame.pack(pady=10, fill="both", expand=True)
+        self.reportes_solicitudes_filtrados = None  # Limpiar filtro previo
+        def filtrar():
+            for widget in resultado_frame.winfo_children():
+                widget.destroy()
+            fecha_ini = fecha_ini_entry.get().strip()
+            fecha_fin = fecha_fin_entry.get().strip()
+            try:
+                df_solicitudes = pd.read_excel(ruta_solicitudes)
+                if df_solicitudes.empty:
+                    tk.Label(resultado_frame, text="No hay solicitudes registradas.", fg="red", bg=COLOR_FRAME, font=FONT_LABEL).pack()
+                    self.reportes_solicitudes_filtrados = None
+                    return
+                df_solicitudes['fecha'] = pd.to_datetime(df_solicitudes['fecha'])
+                ini = pd.to_datetime(fecha_ini)
+                fin = pd.to_datetime(fecha_fin)
+                filtrado = df_solicitudes[(df_solicitudes['fecha'] >= ini) & (df_solicitudes['fecha'] <= fin)]
+                self.reportes_solicitudes_filtrados = filtrado.copy()  # Guardar filtro
+                if filtrado.empty:
+                    tk.Label(resultado_frame, text="🔍 No hay solicitudes en ese rango de fechas.", fg="red", bg=COLOR_FRAME, font=FONT_LABEL).pack()
+                else:
+                    tk.Label(resultado_frame, text="📄 Solicitudes disponibles:", font=FONT_LABEL, fg=COLOR_TITLE, bg=COLOR_FRAME).pack(anchor="w")
+                    columnas = ("ID", "Fecha", "Solicitante")
+                    tree = ttk.Treeview(resultado_frame, columns=columnas, show='headings')
+                    for col in columnas:
+                        tree.heading(col, text=col)
+                        tree.column(col, anchor="center", width=150, stretch=True)
+                    for _, row in filtrado.iterrows():
+                        tree.insert("", "end", values=(row['id'], row['fecha'].strftime('%Y-%m-%d'), row.get('solicitante', '')))
+                    tree.pack(fill="both", expand=True)
+                    vsb = ttk.Scrollbar(resultado_frame, orient="vertical", command=tree.yview)
+                    tree.configure(yscrollcommand=vsb.set)
+                    vsb.pack(side='right', fill='y')
+            except Exception:
+                tk.Label(resultado_frame, text="❌ Formato de fecha inválido.", fg="red", bg=COLOR_FRAME, font=FONT_LABEL).pack()
+                self.reportes_solicitudes_filtrados = None
+        tk.Button(frame, text="Filtrar", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=filtrar).pack(pady=10)
+        tk.Button(frame, text="Volver al menú anterior", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=self.abrir_menu_reportes_solicitudes).pack(pady=10)
+
+    def seleccionar_reporte_solicitud_gui(self):
+        import pandas as pd
+        from main import ruta_solicitudes
+        import os
+        self.limpiar_ventana()
+        frame = self.crear_frame()
+        tk.Label(frame, text="Seleccionar reporte específico", font=FONT_SUBTITLE, fg=COLOR_TITLE, bg=COLOR_FRAME).pack(pady=10)
+        if not hasattr(self, "reportes_solicitudes_filtrados") or self.reportes_solicitudes_filtrados is None or self.reportes_solicitudes_filtrados.empty:
+            tk.Label(frame, text="⚠ Primero debe filtrar por fechas para ver los reportes disponibles.", fg="red", bg=COLOR_FRAME, font=FONT_LABEL).pack(pady=10)
+            tk.Button(frame, text="Ir a filtrar por fechas", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=self.filtrar_reportes_solicitudes_por_fechas_gui).pack(pady=10)
+            tk.Button(frame, text="Volver al menú anterior", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=self.abrir_menu_reportes_solicitudes).pack(pady=10)
+            return
+        tk.Label(frame, text="Ingrese el ID de la solicitud que desea ver:", font=FONT_LABEL, bg=COLOR_FRAME).pack()
+        id_entry = tk.Entry(frame, font=FONT_LABEL)
+        id_entry.pack(pady=2)
+        mensaje_label = tk.Label(frame, text="", font=FONT_LABEL, bg=COLOR_FRAME, fg="green")
+        mensaje_label.pack(pady=8)
+        def generar_reporte():
+            id_sel = id_entry.get().strip()
+            if not id_sel.isdigit():
+                mensaje_label.config(text="❌ ID inválido.", fg="red")
+                return
+            id_sel = int(id_sel)
+            if id_sel not in self.reportes_solicitudes_filtrados['id'].values:
+                mensaje_label.config(text="❌ El ID seleccionado no pertenece al filtro actual.", fg="red")
+                return
+            detalle = self.reportes_solicitudes_filtrados[self.reportes_solicitudes_filtrados['id'] == id_sel]
+            archivo = os.path.join(os.path.dirname(ruta_solicitudes), f"reporte_solicitud_{id_sel}.xlsx")
+            detalle.to_excel(archivo, index=False)
+            mensaje_label.config(text=f"✅ El reporte ha sido generado como '{archivo}'.", fg="green")
+        tk.Button(frame, text="Siguiente", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=generar_reporte).pack(pady=8)
+        tk.Button(frame, text="Volver al menú anterior", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=self.abrir_menu_reportes_solicitudes).pack(pady=10)
+
+    def descargar_reporte_solicitud_gui(self):
+        import os
+        from main import ruta_solicitudes
+        self.limpiar_ventana()
+        frame = self.crear_frame()
+        carpeta = os.path.dirname(ruta_solicitudes)
+        archivos = [f for f in os.listdir(carpeta) if f.startswith("reporte_solicitud_") and f.endswith(".xlsx")]
+        if not archivos:
+            tk.Label(frame, text="❌ No hay reporte generado para descargar. Primero selecciona uno.", fg="red", bg=COLOR_FRAME, font=FONT_LABEL).pack(pady=10)
+        else:
+            tk.Label(frame, text="📥 Reportes disponibles en la carpeta 'data/':", font=FONT_LABEL, fg=COLOR_TITLE, bg=COLOR_FRAME).pack(pady=10, anchor="w")
+            lista_frame = tk.Frame(frame, bg=COLOR_FRAME)
+            lista_frame.pack(fill="both", expand=True)
+            for archivo in archivos:
+                tk.Label(lista_frame, text=f" - {archivo}", font=FONT_LABEL, fg="#222", bg=COLOR_FRAME, anchor="w", justify="left").pack(anchor="w")
+        tk.Button(frame, text="Volver al menú anterior", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=self.abrir_menu_reportes_solicitudes).pack(pady=10)
+
+    def abrir_menu_reportes_insumos_listos(self):
+        self.limpiar_ventana()
+        frame = self.crear_frame()
+        tk.Label(frame, text="REPORTES DE INSUMOS LISTOS PARA ENVÍO", font=FONT_SUBTITLE, fg=COLOR_TITLE, bg=COLOR_FRAME).pack(pady=15)
+        opciones = [
+            ("1. Filtrar por fechas", self.filtrar_listos_fecha_gui),
+            ("2. Seleccionar reporte específico", self.seleccionar_reporte_listos_gui),
+            ("3. Descargar reporte", self.descargar_reporte_listos_gui),
+            ("4. Volver al menú principal", self.mostrar_menu_principal)
+        ]
+        for texto, comando in opciones:
+            tk.Button(frame, text=texto, width=40, font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=comando).pack(pady=4)
+
+    def filtrar_listos_fecha_gui(self):
+        import pandas as pd
+        from main import ruta_listos
+        from tkinter import ttk
+        self.limpiar_ventana()
+        frame = self.crear_frame()
+        tk.Label(frame, text="Filtrar reportes por fechas", font=FONT_SUBTITLE, fg=COLOR_TITLE, bg=COLOR_FRAME).pack(pady=10)
+        tk.Label(frame, text="Ingrese la fecha de inicio (YYYY-MM-DD):", font=FONT_LABEL, bg=COLOR_FRAME).pack()
+        fecha_ini_entry = tk.Entry(frame, font=FONT_LABEL)
+        fecha_ini_entry.pack(pady=2, fill="x", expand=True)
+        tk.Label(frame, text="Ingrese la fecha de fin (YYYY-MM-DD):", font=FONT_LABEL, bg=COLOR_FRAME).pack()
+        fecha_fin_entry = tk.Entry(frame, font=FONT_LABEL)
+        fecha_fin_entry.pack(pady=2, fill="x", expand=True)
+        resultado_frame = tk.Frame(frame, bg=COLOR_FRAME)
+        resultado_frame.pack(pady=10, fill="both", expand=True)
+        self.reportes_listos_filtrados = None  # Limpiar filtro previo
+        def filtrar():
+            for widget in resultado_frame.winfo_children():
+                widget.destroy()
+            fecha_ini = fecha_ini_entry.get().strip()
+            fecha_fin = fecha_fin_entry.get().strip()
+            try:
+                df_listos = pd.read_excel(ruta_listos)
+                if df_listos.empty:
+                    tk.Label(resultado_frame, text="No hay insumos listos registrados.", fg="red", bg=COLOR_FRAME, font=FONT_LABEL).pack()
+                    self.reportes_listos_filtrados = None
+                    return
+                df_listos['fecha'] = pd.to_datetime(df_listos['fecha'])
+                ini = pd.to_datetime(fecha_ini)
+                fin = pd.to_datetime(fecha_fin)
+                filtrado = df_listos[(df_listos['fecha'] >= ini) & (df_listos['fecha'] <= fin)]
+                self.reportes_listos_filtrados = filtrado.copy()  # Guardar filtro
+                if filtrado.empty:
+                    tk.Label(resultado_frame, text="🔍 No hay insumos listos en ese rango de fechas.", fg="red", bg=COLOR_FRAME, font=FONT_LABEL).pack()
+                else:
+                    tk.Label(resultado_frame, text="📄 Insumos listos disponibles:", font=FONT_LABEL, fg=COLOR_TITLE, bg=COLOR_FRAME).pack(anchor="w")
+                    columnas = ("id", "fecha", "producto")
+                    tree = ttk.Treeview(resultado_frame, columns=columnas, show='headings')
+                    for col in columnas:
+                        tree.heading(col, text=col.capitalize())
+                        tree.column(col, anchor="center", width=150, stretch=True)
+                    for _, row in filtrado.iterrows():
+                        tree.insert("", "end", values=(row['id'], row['fecha'].strftime('%Y-%m-%d'), row.get('producto', '')))
+                    tree.pack(fill="both", expand=True)
+                    vsb = ttk.Scrollbar(resultado_frame, orient="vertical", command=tree.yview)
+                    tree.configure(yscrollcommand=vsb.set)
+                    vsb.pack(side='right', fill='y')
+            except Exception:
+                tk.Label(resultado_frame, text="❌ Formato de fecha inválido.", fg="red", bg=COLOR_FRAME, font=FONT_LABEL).pack()
+                self.reportes_listos_filtrados = None
+        tk.Button(frame, text="Filtrar", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=filtrar).pack(pady=10)
+        tk.Button(frame, text="Volver al menú anterior", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=self.abrir_menu_reportes_insumos_listos).pack(pady=10)
+
+    def seleccionar_reporte_listos_gui(self):
+        import pandas as pd
+        from main import ruta_listos
+        import os
+        self.limpiar_ventana()
+        frame = self.crear_frame()
+        tk.Label(frame, text="Seleccionar reporte específico", font=FONT_SUBTITLE, fg=COLOR_TITLE, bg=COLOR_FRAME).pack(pady=10)
+        if not hasattr(self, "reportes_listos_filtrados") or self.reportes_listos_filtrados is None or self.reportes_listos_filtrados.empty:
+            tk.Label(frame, text="⚠ Primero debe filtrar por fechas para ver los reportes disponibles.", fg="red", bg=COLOR_FRAME, font=FONT_LABEL).pack(pady=10)
+            tk.Button(frame, text="Ir a filtrar por fechas", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=self.filtrar_listos_fecha_gui).pack(pady=10)
+            tk.Button(frame, text="Volver al menú anterior", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=self.abrir_menu_reportes_insumos_listos).pack(pady=10)
+            return
+        tk.Label(frame, text="Ingrese el ID del reporte que desea ver:", font=FONT_LABEL, bg=COLOR_FRAME).pack()
+        id_entry = tk.Entry(frame, font=FONT_LABEL)
+        id_entry.pack(pady=2)
+        mensaje_label = tk.Label(frame, text="", font=FONT_LABEL, bg=COLOR_FRAME, fg="green")
+        mensaje_label.pack(pady=8)
+        def generar_reporte():
+            id_sel = id_entry.get().strip()
+            if not id_sel.isdigit():
+                mensaje_label.config(text="❌ ID inválido.", fg="red")
+                return
+            id_sel = int(id_sel)
+            if id_sel not in self.reportes_listos_filtrados['id'].values:
+                mensaje_label.config(text="❌ El ID seleccionado no pertenece al filtro actual.", fg="red")
+                return
+            detalle = self.reportes_listos_filtrados[self.reportes_listos_filtrados['id'] == id_sel]
+            archivo = os.path.join(os.path.dirname(ruta_listos), f"reporte_insumos_listos_{id_sel}.xlsx")
+            detalle.to_excel(archivo, index=False)
+            mensaje_label.config(text=f"✅ El reporte ha sido generado como '{archivo}'.", fg="green")
+        tk.Button(frame, text="Siguiente", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=generar_reporte).pack(pady=8)
+        tk.Button(frame, text="Volver al menú anterior", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=self.abrir_menu_reportes_insumos_listos).pack(pady=10)
+
+    def descargar_reporte_listos_gui(self):
+        import os
+        from main import ruta_listos
+        self.limpiar_ventana()
+        frame = self.crear_frame()
+        carpeta = os.path.dirname(ruta_listos)
+        archivos = [f for f in os.listdir(carpeta) if f.startswith("reporte_insumos_listos_") and f.endswith(".xlsx")]
+        if not archivos:
+            tk.Label(frame, text="❌ No hay reporte generado para descargar. Primero selecciona uno.", fg="red", bg=COLOR_FRAME, font=FONT_LABEL).pack(pady=10)
+        else:
+            tk.Label(frame, text="📥 Reportes disponibles en la carpeta 'data/':", font=FONT_LABEL, fg=COLOR_TITLE, bg=COLOR_FRAME).pack(pady=10, anchor="w")
+            lista_frame = tk.Frame(frame, bg=COLOR_FRAME)
+            lista_frame.pack(fill="both", expand=True)
+            for archivo in archivos:
+                tk.Label(lista_frame, text=f" - {archivo}", font=FONT_LABEL, fg="#222", bg=COLOR_FRAME, anchor="w", justify="left").pack(anchor="w")
+        tk.Button(frame, text="Volver al menú anterior", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=self.abrir_menu_reportes_insumos_listos).pack(pady=10)
+
+    def generar_solicitud_compra_gui(self):
+        self.limpiar_ventana()
+        frame = self.crear_frame()
+        tk.Label(frame, text="Generar solicitud de compra de insumos", font=FONT_SUBTITLE, fg=COLOR_TITLE, bg=COLOR_FRAME).pack(pady=10)
+        tk.Label(frame, text="Nombre del insumo:", font=FONT_LABEL, bg=COLOR_FRAME).pack()
+        insumo_entry = tk.Entry(frame, font=FONT_LABEL)
+        insumo_entry.pack(pady=2)
+        tk.Label(frame, text="Cantidad:", font=FONT_LABEL, bg=COLOR_FRAME).pack()
+        cantidad_entry = tk.Entry(frame, font=FONT_LABEL)
+        cantidad_entry.pack(pady=2)
+        resultado_label = tk.Label(frame, text="", font=FONT_LABEL, bg=COLOR_FRAME)
+        resultado_label.pack(pady=10)
+        def generar():
+            insumo = insumo_entry.get().strip()
+            cantidad = cantidad_entry.get().strip()
+            if not insumo or not cantidad.isdigit() or int(cantidad) <= 0:
+                resultado_label.config(text="❌ Complete los campos correctamente.", fg="red")
+                return
+            try:
+                mensaje = self.generar_solicitud_compra(insumo, int(cantidad))
+                resultado_label.config(text=f"✅ {mensaje}", fg="green")
+            except Exception as e:
+                resultado_label.config(text=f"❌ Error: {e}", fg="red")
+        tk.Button(frame, text="Generar solicitud", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=generar).pack(pady=10)
+        tk.Button(frame, text="Volver al menú anterior", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=self.abrir_menu_envio).pack(pady=10)
+
+    def generar_solicitud_compra(insumo, cantidad):
+        import pandas as pd, os
+        from datetime import datetime
+        ruta = os.path.join(os.path.dirname(__file__), "data", "solicitudes.xlsx")
+        if os.path.exists(ruta):
+            df = pd.read_excel(ruta)
+        else:
+            df = pd.DataFrame(columns=["fecha", "insumo", "cantidad"])
+        nueva = pd.DataFrame([[datetime.today().strftime("%Y-%m-%d"), insumo, cantidad]], columns=["fecha", "insumo", "cantidad"])
+        df = pd.concat([df, nueva], ignore_index=True)
+        df.to_excel(ruta, index=False)
+        return "Solicitud de compra registrada correctamente."
+
+    def abrir_menu_insumos_defectuosos(self):
+        self.limpiar_ventana()
+        frame = self.crear_frame()
+        tk.Label(
+            frame,
+            text="REPORTE DE INSUMOS DEFECTUOSOS",
+            font=FONT_SUBTITLE,
+            fg=COLOR_TITLE,
+            bg=COLOR_FRAME
+        ).pack(pady=30)
+
+        opciones = [
+            ("1. Crear nuevo reporte", self.crear_nuevo_reporte_defectuoso_gui),
+            ("2. Guardar reporte en Excel", self.guardar_reporte_defectuoso_gui),
+            ("3. Enviar reporte por correo", self.enviar_reporte_defectuoso_gui),
+            ("4. Volver al menú anterior", self.abrir_menu_recepcion)
+        ]
+        for texto, comando in opciones:
+            tk.Button(
+                frame,
+                text=texto,
+                width=40,
+                font=FONT_BTN,
+                bg=COLOR_BTN,
+                fg=COLOR_BTN_TEXT,
+                command=comando
+            ).pack(pady=4)
+
+    def crear_nuevo_reporte_defectuoso_gui(self):
+        self.limpiar_ventana()
+        frame = self.crear_frame()
+        tk.Label(frame, text="Crear nuevo reporte de insumos defectuosos", font=FONT_SUBTITLE, fg=COLOR_TITLE, bg=COLOR_FRAME).pack(pady=10)
+        proveedor_entry = tk.Entry(frame, font=FONT_LABEL)
+        fecha_entry = tk.Entry(frame, font=FONT_LABEL)
+        producto_entry = tk.Entry(frame, font=FONT_LABEL)
+        defecto_var = tk.StringVar(value="cantidad")
+        observaciones_entry = tk.Entry(frame, font=FONT_LABEL)
+        resultado_label = tk.Label(frame, text="", font=FONT_LABEL, bg=COLOR_FRAME)
+        resultado_label.pack(pady=10)
+
+        tk.Label(frame, text="Nombre del proveedor:", font=FONT_LABEL, bg=COLOR_FRAME).pack()
+        proveedor_entry.pack(pady=2)
+        tk.Label(frame, text="Fecha (YYYY-MM-DD):", font=FONT_LABEL, bg=COLOR_FRAME).pack()
+        fecha_entry.pack(pady=2)
+        tk.Label(frame, text="Nombre del producto:", font=FONT_LABEL, bg=COLOR_FRAME).pack()
+        producto_entry.pack(pady=2)
+        tk.Label(frame, text="Tipo de defecto:", font=FONT_LABEL, bg=COLOR_FRAME).pack()
+        defecto_menu = tk.OptionMenu(frame, defecto_var, "cantidad", "calidad")
+        defecto_menu.config(font=FONT_LABEL)
+        defecto_menu.pack(pady=2)
+        tk.Label(frame, text="Observaciones (opcional):", font=FONT_LABEL, bg=COLOR_FRAME).pack()
+        observaciones_entry.pack(pady=2)
+
+        def crear_reporte():
+            proveedor = proveedor_entry.get().strip()
+            fecha = fecha_entry.get().strip()
+            producto = producto_entry.get().strip()
+            defecto = defecto_var.get()
+            observaciones = observaciones_entry.get().strip()
+            import pandas as pd
+            from datetime import datetime
+
+            # Validaciones
+            if not proveedor or not producto or not defecto:
+                resultado_label.config(text="❌ Faltan campos obligatorios.", fg="red")
+                return
+            try:
+                datetime.strptime(fecha, "%Y-%m-%d")
+            except Exception:
+                resultado_label.config(text="❌ Fecha inválida. Formato correcto: YYYY-MM-DD.", fg="red")
+                return
+            if defecto not in ["cantidad", "calidad"]:
+                resultado_label.config(text="❌ Tipo de defecto inválido.", fg="red")
+                return
+
+            # Guardar temporalmente en la instancia
+            if not hasattr(self, "reporte_defectuosos"):
+                self.reporte_defectuosos = []
+            self.reporte_defectuosos.clear()  # Solo uno a la vez, igual que en main.py
+            self.reporte_defectuosos.append([proveedor, fecha, producto, defecto, observaciones])
+            resultado_label.config(text="✅ Reporte creado correctamente.", fg="green")
+
+        tk.Button(frame, text="Registrar reporte", font=FONT_BTN, bg=COLOR_BTN, fg=COLOR_BTN_TEXT, command=crear_reporte).pack(pady=10)
+        tk.Button(frame, text="Volver", font=FONT_BTN, bg="#6c757d", fg=COLOR_BTN_TEXT, command=self.abrir_menu_insumos_defectuosos).pack(pady=5)
+
+    def guardar_reporte_defectuoso_gui(self):
+        import pandas as pd
+        import os
+        self.limpiar_ventana()
+        frame = self.crear_frame()
+        tk.Label(frame, text="Guardar reporte de insumos defectuosos", font=FONT_SUBTITLE, fg=COLOR_TITLE, bg=COLOR_FRAME).pack(pady=10)
+        resultado_label = tk.Label(frame, text="", font=FONT_LABEL, bg=COLOR_FRAME)
+        resultado_label.pack(pady=10)
+        ruta = os.path.join(os.path.dirname(__file__), "data", "reporte_defectuosos.xlsx")
+        if not hasattr(self, "reporte_defectuosos") or not self.reporte_defectuosos:
+            resultado_label.config(text="❌ No hay reporte cargado.", fg="red")
+        else:
+            df = pd.DataFrame(self.reporte_defectuosos, columns=["proveedor", "fecha", "producto", "tipo_defecto", "observaciones"])
+            df.to_excel(ruta, index=False)
+            resultado_label.config(text=f"✅ Reporte guardado en '{ruta}'", fg="green")
+        tk.Button(frame, text="Volver", font=FONT_BTN, bg="#6c757d", fg=COLOR_BTN_TEXT, command=self.abrir_menu_insumos_defectuosos).pack(pady=5)
+
+    def enviar_reporte_defectuoso_gui(self):
+        import os
+        import smtplib
+        from email.message import EmailMessage
+        self.limpiar_ventana()
+        frame = self.crear_frame()
+        tk.Label(frame, text="Enviar reporte por correo", font=FONT_SUBTITLE, fg=COLOR_TITLE, bg=COLOR_FRAME).pack(pady=10)
+        resultado_label = tk.Label(frame, text="", font=FONT_LABEL, bg=COLOR_FRAME)
+        resultado_label.pack(pady=10)
+        ruta = os.path.join(os.path.dirname(__file__), "data", "reporte_defectuosos.xlsx")
+        if not os.path.exists(ruta):
+            resultado_label.config(text="❌ No se ha generado ningún archivo aún.", fg="red")
+        else:
+            try:
+                email_remitente = "elcoordinadordecompras@gmail.com"
+                contraseña = "iocsdhwphxxhbzzp"
+                destinatario = "jurinconba@unal.edu.co"
+                mensaje = EmailMessage()
+                mensaje["Subject"] = "❗Reporte de Insumos Defectuosos"
+                mensaje["From"] = email_remitente
+                mensaje["To"] = destinatario
+                mensaje.set_content("Adjunto reporte de insumos defectuosos.")
+                with open(ruta, "rb") as f:
+                    mensaje.add_attachment(
+                        f.read(),
+                        maintype="application",
+                        subtype="vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        filename="reporte_defectuosos.xlsx"
+                    )
+                with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+                    smtp.login(email_remitente, contraseña)
+                    smtp.send_message(mensaje)
+                resultado_label.config(text="✅ Reporte enviado por correo exitosamente.", fg="green")
+            except Exception as e:
+                resultado_label.config(text=f"❌ Error al enviar el correo: {e}", fg="red")
+        tk.Button(frame, text="Volver", font=FONT_BTN, bg="#6c757d", fg=COLOR_BTN_TEXT, command=self.abrir_menu_insumos_defectuosos).pack(pady=5)
 
 if __name__ == "__main__":
     root = tk.Tk()
