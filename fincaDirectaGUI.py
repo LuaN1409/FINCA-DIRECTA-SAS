@@ -535,10 +535,10 @@ class SistemaFincaDirectaGUI:
         modules_frame = ttk.Frame(main_container, style='Main.TFrame')
         modules_frame.pack(expand=True)
         
-        # Configurar grid para 4 columnas
+        # Configurar grid para 4 columnas y 3 filas
         for i in range(4):
             modules_frame.grid_columnconfigure(i, weight=1)
-        for i in range(2):
+        for i in range(3):
             modules_frame.grid_rowconfigure(i, weight=1)
         
         # Módulos con iconos y descripciones mejoradas
@@ -550,7 +550,8 @@ class SistemaFincaDirectaGUI:
             ("📋 Reportes de Recepción", "Estadísticas de recepción (HU7)", self.menu_reportes_recepcion, 1, 0),
             ("🛒 Reportes de Solicitudes", "Gestión de compras (HU8)", self.menu_reportes_solicitudes, 1, 1),
             ("🚚 Reportes Insumos Listos", "Estado de preparación (HU10)", self.menu_reportes_insumos_listos, 1, 2),
-            ("⚙️ Configuración", "Ajustes del sistema", self.mostrar_configuracion, 1, 3)
+            ("🚨 Reportar Insumos Defectuosos", "Control de calidad y cantidad", self.menu_reportar_defectuosos, 1, 3),
+            ("⚙️ Configuración", "Ajustes del sistema", self.mostrar_configuracion, 2, 0)
         ]
         
         for texto, descripcion, comando, fila, columna in modulos:
@@ -1023,8 +1024,8 @@ class SistemaFincaDirectaGUI:
             messagebox.showerror("Error", f"Error al actualizar inventario: {e}")
             
     def menu_recepcion_insumos(self):
-        """Menú para recepción de insumos"""
-        ventana = self.crear_ventana_secundaria("📥 Recepción de Insumos", "700x600")
+        """Menú para recepción de insumos con control de conformidad"""
+        ventana = self.crear_ventana_secundaria("📥 Recepción de Insumos", "900x700")
         
         main_frame = ttk.Frame(ventana, padding="20")
         main_frame.pack(fill="both", expand=True)
@@ -1049,11 +1050,11 @@ class SistemaFincaDirectaGUI:
         self.entry_numero_pedido = ttk.Entry(info_frame, width=30, style='Custom.TEntry')
         self.entry_numero_pedido.grid(row=2, column=1, padx=5, pady=5)
         
-        # Productos recibidos
+        # Productos recibidos con conformidad
         productos_frame = ttk.LabelFrame(main_frame, text="Productos Recibidos", padding="10")
         productos_frame.pack(fill="both", expand=True, pady=10)
         
-        # Lista de productos
+        # Lista de productos con conformidad
         self.productos_recibidos = []
         
         # Frame para agregar productos
@@ -1068,13 +1069,56 @@ class SistemaFincaDirectaGUI:
         self.entry_cantidad_nueva = ttk.Entry(add_frame, width=10, style='Custom.TEntry')
         self.entry_cantidad_nueva.pack(side="left", padx=5)
         
+        ttk.Label(add_frame, text="Estado:").pack(side="left", padx=5)
+        self.combo_estado_nuevo = ttk.Combobox(add_frame, width=12, 
+                                             values=["Conforme", "No conforme"],
+                                             state="readonly")
+        self.combo_estado_nuevo.set("Conforme")  # Valor por defecto
+        self.combo_estado_nuevo.pack(side="left", padx=5)
+        
         ttk.Button(add_frame, text="➕ Agregar", 
                   command=self.agregar_producto_recibido).pack(side="left", padx=5)
         
-        # Lista de productos agregados con mejor visibilidad
-        self.list_productos = tk.Listbox(productos_frame, height=8, 
-                                        bg='white', fg='#2C3E50', selectbackground='#3498DB')
-        self.list_productos.pack(fill="both", expand=True, pady=5)
+        # Frame con Treeview para mostrar productos con conformidad
+        tree_frame = ttk.Frame(productos_frame)
+        tree_frame.pack(fill="both", expand=True, pady=5)
+        
+        # Crear Treeview para productos
+        columns = ('Producto', 'Cantidad', 'Estado')
+        self.tree_productos = ttk.Treeview(tree_frame, columns=columns, show='tree headings', height=8)
+        
+        # Configurar columnas
+        self.tree_productos.heading('#0', text='#')
+        self.tree_productos.heading('Producto', text='Producto')
+        self.tree_productos.heading('Cantidad', text='Cantidad')
+        self.tree_productos.heading('Estado', text='Estado')
+        
+        self.tree_productos.column('#0', width=50)
+        self.tree_productos.column('Producto', width=200)
+        self.tree_productos.column('Cantidad', width=100)
+        self.tree_productos.column('Estado', width=120)
+        
+        # Scrollbar para el Treeview
+        scrollbar_tree = ttk.Scrollbar(tree_frame, orient="vertical", command=self.tree_productos.yview)
+        self.tree_productos.configure(yscrollcommand=scrollbar_tree.set)
+        
+        self.tree_productos.pack(side="left", fill="both", expand=True)
+        scrollbar_tree.pack(side="right", fill="y")
+        
+        # Frame para modificar conformidad de producto seleccionado
+        modify_frame = ttk.Frame(productos_frame)
+        modify_frame.pack(fill="x", pady=5)
+        
+        ttk.Label(modify_frame, text="Modificar estado del producto seleccionado:").pack(side="left", padx=5)
+        self.combo_estado_modificar = ttk.Combobox(modify_frame, width=12,
+                                                 values=["Conforme", "No conforme"],
+                                                 state="readonly")
+        self.combo_estado_modificar.pack(side="left", padx=5)
+        
+        ttk.Button(modify_frame, text="🔄 Modificar Estado", 
+                  command=self.modificar_estado_producto).pack(side="left", padx=5)
+        ttk.Button(modify_frame, text="🗑️ Eliminar Producto", 
+                  command=self.eliminar_producto).pack(side="left", padx=5)
         
         # Botones de acción
         btn_frame = ttk.Frame(main_frame)
@@ -1086,8 +1130,10 @@ class SistemaFincaDirectaGUI:
                   command=self.limpiar_recepcion).pack(side="left", padx=5)
         
     def agregar_producto_recibido(self):
-        """Agregar producto a la lista de productos recibidos"""
+        """Agregar producto a la lista de productos recibidos con estado de conformidad"""
         producto = self.entry_producto_nuevo.get().strip()
+        estado = self.combo_estado_nuevo.get()
+        
         try:
             cantidad = int(self.entry_cantidad_nueva.get().strip())
         except ValueError:
@@ -1098,12 +1144,82 @@ class SistemaFincaDirectaGUI:
             messagebox.showerror("Error", "Ingrese un producto válido y cantidad mayor a 0")
             return
             
-        self.productos_recibidos.append((producto, cantidad))
-        self.list_productos.insert(tk.END, f"{producto} - {cantidad} unidades")
+        if not estado:
+            messagebox.showerror("Error", "Debe seleccionar un estado (Conforme/No conforme)")
+            return
+            
+        # Agregar producto con estado de conformidad
+        self.productos_recibidos.append((producto, cantidad, estado))
+        
+        # Agregar al Treeview
+        item_count = len(self.productos_recibidos)
+        item_id = self.tree_productos.insert('', 'end', text=str(item_count),
+                                            values=(producto, cantidad, estado))
+        
+        # Aplicar color según estado
+        if estado == "No conforme":
+            self.tree_productos.set(item_id, 'Estado', f"🚫 {estado}")
+        else:
+            self.tree_productos.set(item_id, 'Estado', f"✅ {estado}")
         
         # Limpiar campos
         self.entry_producto_nuevo.delete(0, tk.END)
         self.entry_cantidad_nueva.delete(0, tk.END)
+        self.combo_estado_nuevo.set("Conforme")  # Resetear a valor por defecto
+        
+    def modificar_estado_producto(self):
+        """Modificar el estado de conformidad del producto seleccionado"""
+        selected_item = self.tree_productos.selection()
+        if not selected_item:
+            messagebox.showwarning("Advertencia", "Debe seleccionar un producto de la lista")
+            return
+            
+        nuevo_estado = self.combo_estado_modificar.get()
+        if not nuevo_estado:
+            messagebox.showwarning("Advertencia", "Debe seleccionar un nuevo estado")
+            return
+            
+        # Obtener índice del producto
+        item_text = self.tree_productos.item(selected_item[0])['text']
+        indice = int(item_text) - 1
+        
+        # Actualizar en la lista
+        producto, cantidad, _ = self.productos_recibidos[indice]
+        self.productos_recibidos[indice] = (producto, cantidad, nuevo_estado)
+        
+        # Actualizar en el Treeview
+        if nuevo_estado == "No conforme":
+            self.tree_productos.set(selected_item[0], 'Estado', f"🚫 {nuevo_estado}")
+        else:
+            self.tree_productos.set(selected_item[0], 'Estado', f"✅ {nuevo_estado}")
+            
+        messagebox.showinfo("Éxito", f"Estado actualizado a: {nuevo_estado}")
+        
+    def eliminar_producto(self):
+        """Eliminar producto seleccionado"""
+        selected_item = self.tree_productos.selection()
+        if not selected_item:
+            messagebox.showwarning("Advertencia", "Debe seleccionar un producto de la lista")
+            return
+            
+        # Confirmar eliminación
+        if messagebox.askyesno("Confirmar", "¿Está seguro de eliminar este producto?"):
+            # Obtener índice del producto
+            item_text = self.tree_productos.item(selected_item[0])['text']
+            indice = int(item_text) - 1
+            
+            # Eliminar de la lista
+            del self.productos_recibidos[indice]
+            
+            # Reconstruir el Treeview
+            self.tree_productos.delete(*self.tree_productos.get_children())
+            for i, (producto, cantidad, estado) in enumerate(self.productos_recibidos):
+                item_id = self.tree_productos.insert('', 'end', text=str(i+1),
+                                                    values=(producto, cantidad, estado))
+                if estado == "No conforme":
+                    self.tree_productos.set(item_id, 'Estado', f"🚫 {estado}")
+                else:
+                    self.tree_productos.set(item_id, 'Estado', f"✅ {estado}")
         
     def limpiar_recepcion(self):
         """Limpiar todos los campos de recepción"""
@@ -1112,11 +1228,13 @@ class SistemaFincaDirectaGUI:
         self.entry_numero_pedido.delete(0, tk.END)
         self.entry_producto_nuevo.delete(0, tk.END)
         self.entry_cantidad_nueva.delete(0, tk.END)
-        self.list_productos.delete(0, tk.END)
+        self.combo_estado_nuevo.set("Conforme")
+        self.combo_estado_modificar.set("")
+        self.tree_productos.delete(*self.tree_productos.get_children())
         self.productos_recibidos = []
         
     def procesar_recepcion_completa(self):
-        """Procesar la recepción completa de insumos"""
+        """Procesar la recepción completa de insumos con estado de conformidad"""
         proveedor = self.entry_proveedor.get().strip()
         fecha = self.entry_fecha_recepcion.get().strip()
         numero_pedido = self.entry_numero_pedido.get().strip()
@@ -1137,7 +1255,7 @@ class SistemaFincaDirectaGUI:
             return
             
         try:
-            # Registrar la recepción (simular el proceso completo)
+            # Registrar la recepción con estado de conformidad
             # 1. Registrar entrega
             df_entregas = cargar_excel(entregas)
             nuevo_id = 1 if df_entregas.empty else df_entregas['id'].max() + 1
@@ -1146,24 +1264,75 @@ class SistemaFincaDirectaGUI:
             df_entregas = pd.concat([df_entregas, nueva_entrega], ignore_index=True)
             guardar_excel(df_entregas, entregas)
             
-            # 2. Guardar detalle
-            guardar_detalle_entrega(self.productos_recibidos, nuevo_id)
+            # 2. Guardar detalle con estado de conformidad
+            self.guardar_detalle_entrega_con_conformidad(self.productos_recibidos, nuevo_id)
             
             # 3. Validar campos
-            if not validar_campos(self.productos_recibidos):
+            productos_basicos = [(p[0], p[1]) for p in self.productos_recibidos]  # Solo producto y cantidad para validación
+            if not validar_campos(productos_basicos):
                 return
                 
-            # 4. Verificar calidad (simplificado - asumir conformes)
-            productos_validados = self.productos_recibidos.copy()
+            # 4. Procesar conformidad y mostrar resumen
+            productos_conformes = [p for p in self.productos_recibidos if p[2] == "Conforme"]
+            productos_no_conformes = [p for p in self.productos_recibidos if p[2] == "No conforme"]
             
-            # 5. Ingresar al inventario
-            ingresar_inventario(productos_validados)
+            # 5. Ingresar al inventario solo productos conformes
+            if productos_conformes:
+                productos_validados = [(p[0], p[1]) for p in productos_conformes]
+                ingresar_inventario(productos_validados)
             
-            messagebox.showinfo("Éxito", f"✅ Recepción procesada exitosamente. ID de entrega: {nuevo_id}")
+            # 6. Mostrar resumen detallado
+            resumen = f"✅ Recepción procesada exitosamente. ID de entrega: {nuevo_id}\n\n"
+            resumen += f"📋 RESUMEN:\n"
+            resumen += f"• Total productos recibidos: {len(self.productos_recibidos)}\n"
+            resumen += f"• Productos conformes: {len(productos_conformes)}\n"
+            resumen += f"• Productos no conformes: {len(productos_no_conformes)}\n\n"
+            
+            if productos_conformes:
+                resumen += "✅ PRODUCTOS CONFORMES (ingresados al inventario):\n"
+                for producto, cantidad, _ in productos_conformes:
+                    resumen += f"   • {producto}: {cantidad} unidades\n"
+                resumen += "\n"
+            
+            if productos_no_conformes:
+                resumen += "🚫 PRODUCTOS NO CONFORMES (NO ingresados al inventario):\n"
+                for producto, cantidad, _ in productos_no_conformes:
+                    resumen += f"   • {producto}: {cantidad} unidades\n"
+            
+            messagebox.showinfo("Recepción Completada", resumen)
             self.limpiar_recepcion()
             
         except Exception as e:
             messagebox.showerror("Error", f"Error al procesar recepción: {e}")
+            
+    def guardar_detalle_entrega_con_conformidad(self, productos, entrega_id):
+        """Guardar detalle de entrega incluyendo estado de conformidad"""
+        try:
+            df_detalle = cargar_excel(detalle_entregas)
+            
+            nuevos_detalles = []
+            for producto, cantidad, estado in productos:
+                nuevo_detalle = [entrega_id, producto, cantidad, estado]
+                nuevos_detalles.append(nuevo_detalle)
+            
+            # Crear DataFrame con las columnas apropiadas
+            if df_detalle.empty:
+                columnas = ["entrega_id", "producto", "cantidad", "estado_conformidad"]
+            else:
+                columnas = df_detalle.columns.tolist()
+                # Agregar columna de estado si no existe
+                if "estado_conformidad" not in columnas:
+                    columnas.append("estado_conformidad")
+            
+            df_nuevos = pd.DataFrame(nuevos_detalles, columns=columnas)
+            df_detalle = pd.concat([df_detalle, df_nuevos], ignore_index=True)
+            
+            guardar_excel(df_detalle, detalle_entregas)
+            
+        except Exception as e:
+            print(f"Error al guardar detalle con conformidad: {e}")
+            # Fallback: guardar sin conformidad
+            guardar_detalle_entrega([(p[0], p[1]) for p in productos], entrega_id)
             
     def menu_reportes_recepcion(self):
         """Menú para reportes de recepción"""
@@ -1335,6 +1504,386 @@ PRODUCTOS RECIBIDOS:
         """Menú para reportes de insumos listos"""
         messagebox.showinfo("Info", "Funcionalidad de reportes de insumos listos - Por implementar")
         
+    def menu_reportar_defectuosos(self):
+        """Menú para reportar insumos defectuosos con desplegables y observaciones"""
+        ventana = self.crear_ventana_secundaria("🚨 Reportar Insumos Defectuosos", "1000x800")
+        
+        main_frame = ttk.Frame(ventana, padding="20")
+        main_frame.pack(fill="both", expand=True)
+        
+        ttk.Label(main_frame, text="Reportar Insumos Defectuosos", 
+                 style='Subtitle.TLabel').pack(pady=10)
+        
+        # Frame para información general del reporte
+        info_frame = ttk.LabelFrame(main_frame, text="Información General", padding="15")
+        info_frame.pack(fill="x", pady=10)
+        
+        # Grid para información general
+        ttk.Label(info_frame, text="Proveedor:").grid(row=0, column=0, sticky="w", padx=5, pady=5)
+        self.entry_proveedor_defecto = ttk.Entry(info_frame, width=30)
+        self.entry_proveedor_defecto.grid(row=0, column=1, padx=5, pady=5)
+        
+        ttk.Label(info_frame, text="Fecha del reporte (YYYY-MM-DD):").grid(row=0, column=2, sticky="w", padx=5, pady=5)
+        self.entry_fecha_defecto = ttk.Entry(info_frame, width=20)
+        self.entry_fecha_defecto.grid(row=0, column=3, padx=5, pady=5)
+        
+        # Establecer fecha actual por defecto
+        from datetime import datetime
+        self.entry_fecha_defecto.insert(0, datetime.now().strftime("%Y-%m-%d"))
+        
+        # Frame para agregar insumos defectuosos
+        insumos_frame = ttk.LabelFrame(main_frame, text="Insumos Defectuosos", padding="15")
+        insumos_frame.pack(fill="both", expand=True, pady=10)
+        
+        # Lista de insumos defectuosos
+        if not hasattr(self, 'insumos_defectuosos'):
+            self.insumos_defectuosos = []
+        
+        # Frame para agregar nuevo insumo defectuoso
+        add_frame = ttk.Frame(insumos_frame)
+        add_frame.pack(fill="x", pady=10)
+        
+        # Primera fila de controles
+        fila1 = ttk.Frame(add_frame)
+        fila1.pack(fill="x", pady=5)
+        
+        ttk.Label(fila1, text="Producto:").pack(side="left", padx=5)
+        self.entry_producto_defecto = ttk.Entry(fila1, width=25)
+        self.entry_producto_defecto.pack(side="left", padx=5)
+        
+        ttk.Label(fila1, text="Cantidad afectada:").pack(side="left", padx=5)
+        self.entry_cantidad_defecto = ttk.Entry(fila1, width=15)
+        self.entry_cantidad_defecto.pack(side="left", padx=5)
+        
+        ttk.Label(fila1, text="Tipo de problema:").pack(side="left", padx=5)
+        self.combo_tipo_defecto = ttk.Combobox(fila1, width=15, 
+                                             values=["Calidad", "Cantidad"],
+                                             state="readonly")
+        self.combo_tipo_defecto.set("Calidad")  # Valor por defecto
+        self.combo_tipo_defecto.pack(side="left", padx=5)
+        
+        # Segunda fila para observaciones
+        fila2 = ttk.Frame(add_frame)
+        fila2.pack(fill="x", pady=5)
+        
+        ttk.Label(fila2, text="Observaciones (opcional):").pack(side="left", padx=5)
+        self.entry_observaciones_defecto = ttk.Entry(fila2, width=60)
+        self.entry_observaciones_defecto.pack(side="left", padx=5, fill="x", expand=True)
+        
+        ttk.Button(fila2, text="➕ Agregar Insumo", 
+                  command=self.agregar_insumo_defectuoso).pack(side="right", padx=5)
+        
+        # Frame con Treeview para mostrar insumos defectuosos
+        tree_frame = ttk.Frame(insumos_frame)
+        tree_frame.pack(fill="both", expand=True, pady=10)
+        
+        # Crear Treeview para insumos defectuosos
+        columns = ('Producto', 'Cantidad', 'Tipo Problema', 'Observaciones')
+        self.tree_defectuosos = ttk.Treeview(tree_frame, columns=columns, show='tree headings', height=10)
+        
+        # Configurar columnas
+        self.tree_defectuosos.heading('#0', text='#')
+        self.tree_defectuosos.heading('Producto', text='Producto')
+        self.tree_defectuosos.heading('Cantidad', text='Cantidad')
+        self.tree_defectuosos.heading('Tipo Problema', text='Tipo de Problema')
+        self.tree_defectuosos.heading('Observaciones', text='Observaciones')
+        
+        self.tree_defectuosos.column('#0', width=50)
+        self.tree_defectuosos.column('Producto', width=200)
+        self.tree_defectuosos.column('Cantidad', width=100)
+        self.tree_defectuosos.column('Tipo Problema', width=150)
+        self.tree_defectuosos.column('Observaciones', width=300)
+        
+        # Scrollbar para el Treeview
+        scrollbar_defectuosos = ttk.Scrollbar(tree_frame, orient="vertical", command=self.tree_defectuosos.yview)
+        self.tree_defectuosos.configure(yscrollcommand=scrollbar_defectuosos.set)
+        
+        self.tree_defectuosos.pack(side="left", fill="both", expand=True)
+        scrollbar_defectuosos.pack(side="right", fill="y")
+        
+        # Frame para acciones con insumos
+        acciones_frame = ttk.Frame(insumos_frame)
+        acciones_frame.pack(fill="x", pady=10)
+        
+        ttk.Button(acciones_frame, text="🔄 Modificar Seleccionado", 
+                  command=self.modificar_insumo_defectuoso).pack(side="left", padx=5)
+        ttk.Button(acciones_frame, text="🗑️ Eliminar Seleccionado", 
+                  command=self.eliminar_insumo_defectuoso).pack(side="left", padx=5)
+        ttk.Button(acciones_frame, text="🧹 Limpiar Todo", 
+                  command=self.limpiar_defectuosos).pack(side="left", padx=5)
+        
+        # Frame para botones principales
+        botones_frame = ttk.Frame(main_frame)
+        botones_frame.pack(fill="x", pady=20)
+        
+        ttk.Button(botones_frame, text="✅ Confirmar y Revisar", 
+                  command=self.confirmar_reporte_defectuosos,
+                  style='Primary.TButton').pack(side="left", padx=10)
+        ttk.Button(botones_frame, text="💾 Guardar Reporte", 
+                  command=self.guardar_reporte_defectuosos,
+                  style='Success.TButton').pack(side="left", padx=10)
+        ttk.Button(botones_frame, text="📧 Enviar por Email", 
+                  command=self.enviar_reporte_defectuosos).pack(side="left", padx=10)
+
+    def agregar_insumo_defectuoso(self):
+        """Agregar un insumo defectuoso a la lista"""
+        producto = self.entry_producto_defecto.get().strip()
+        cantidad = self.entry_cantidad_defecto.get().strip()
+        tipo_problema = self.combo_tipo_defecto.get()
+        observaciones = self.entry_observaciones_defecto.get().strip()
+        
+        if not producto:
+            messagebox.showwarning("Error", "Por favor ingrese el nombre del producto")
+            return
+            
+        if not cantidad:
+            messagebox.showwarning("Error", "Por favor ingrese la cantidad afectada")
+            return
+            
+        try:
+            cantidad_num = float(cantidad)
+            if cantidad_num <= 0:
+                raise ValueError("La cantidad debe ser mayor a 0")
+        except ValueError:
+            messagebox.showwarning("Error", "Por favor ingrese una cantidad válida")
+            return
+        
+        # Agregar a la lista
+        insumo = {
+            'producto': producto,
+            'cantidad': cantidad,
+            'tipo_problema': tipo_problema,
+            'observaciones': observaciones if observaciones else "Sin observaciones"
+        }
+        
+        if not hasattr(self, 'insumos_defectuosos'):
+            self.insumos_defectuosos = []
+        
+        self.insumos_defectuosos.append(insumo)
+        
+        # Agregar al Treeview
+        item_id = self.tree_defectuosos.insert('', 'end', text=str(len(self.insumos_defectuosos)),
+                                              values=(producto, cantidad, tipo_problema, 
+                                                     observaciones if observaciones else "Sin observaciones"))
+        
+        # Limpiar campos
+        self.entry_producto_defecto.delete(0, tk.END)
+        self.entry_cantidad_defecto.delete(0, tk.END)
+        self.entry_observaciones_defecto.delete(0, tk.END)
+        self.combo_tipo_defecto.set("Calidad")
+        
+        messagebox.showinfo("Éxito", f"Insumo defectuoso agregado: {producto}")
+
+    def modificar_insumo_defectuoso(self):
+        """Modificar el insumo defectuoso seleccionado"""
+        selection = self.tree_defectuosos.selection()
+        if not selection:
+            messagebox.showwarning("Error", "Por favor seleccione un insumo para modificar")
+            return
+            
+        item = selection[0]
+        index = int(self.tree_defectuosos.item(item, 'text')) - 1
+        
+        if hasattr(self, 'insumos_defectuosos') and 0 <= index < len(self.insumos_defectuosos):
+            insumo = self.insumos_defectuosos[index]
+            
+            # Cargar datos en los campos
+            self.entry_producto_defecto.delete(0, tk.END)
+            self.entry_producto_defecto.insert(0, insumo['producto'])
+            
+            self.entry_cantidad_defecto.delete(0, tk.END)
+            self.entry_cantidad_defecto.insert(0, insumo['cantidad'])
+            
+            self.combo_tipo_defecto.set(insumo['tipo_problema'])
+            
+            self.entry_observaciones_defecto.delete(0, tk.END)
+            if insumo['observaciones'] != "Sin observaciones":
+                self.entry_observaciones_defecto.insert(0, insumo['observaciones'])
+            
+            # Eliminar el item actual
+            self.eliminar_insumo_defectuoso()
+            
+            messagebox.showinfo("Info", "Datos cargados para modificación. Ajuste y presione 'Agregar Insumo'")
+
+    def eliminar_insumo_defectuoso(self):
+        """Eliminar el insumo defectuoso seleccionado"""
+        selection = self.tree_defectuosos.selection()
+        if not selection:
+            messagebox.showwarning("Error", "Por favor seleccione un insumo para eliminar")
+            return
+            
+        if messagebox.askyesno("Confirmar", "¿Está seguro de eliminar este insumo defectuoso?"):
+            item = selection[0]
+            index = int(self.tree_defectuosos.item(item, 'text')) - 1
+            
+            if hasattr(self, 'insumos_defectuosos') and 0 <= index < len(self.insumos_defectuosos):
+                self.insumos_defectuosos.pop(index)
+                
+            # Recargar Treeview
+            self.tree_defectuosos.delete(*self.tree_defectuosos.get_children())
+            for i, insumo in enumerate(self.insumos_defectuosos):
+                self.tree_defectuosos.insert('', 'end', text=str(i + 1),
+                                            values=(insumo['producto'], insumo['cantidad'], 
+                                                   insumo['tipo_problema'], insumo['observaciones']))
+
+    def limpiar_defectuosos(self):
+        """Limpiar toda la lista de insumos defectuosos"""
+        if hasattr(self, 'insumos_defectuosos') and self.insumos_defectuosos and messagebox.askyesno("Confirmar", "¿Está seguro de limpiar toda la lista?"):
+            self.insumos_defectuosos.clear()
+            self.tree_defectuosos.delete(*self.tree_defectuosos.get_children())
+            messagebox.showinfo("Info", "Lista de insumos defectuosos limpiada")
+
+    def confirmar_reporte_defectuosos(self):
+        """Confirmar y revisar el reporte antes de guardarlo"""
+        proveedor = self.entry_proveedor_defecto.get().strip()
+        fecha = self.entry_fecha_defecto.get().strip()
+        
+        if not proveedor:
+            messagebox.showwarning("Error", "Por favor ingrese el proveedor")
+            return
+            
+        if not fecha:
+            messagebox.showwarning("Error", "Por favor ingrese la fecha")
+            return
+            
+        if not hasattr(self, 'insumos_defectuosos') or not self.insumos_defectuosos:
+            messagebox.showwarning("Error", "Por favor agregue al menos un insumo defectuoso")
+            return
+            
+        # Crear ventana de confirmación
+        ventana_conf = self.crear_ventana_secundaria("📋 Revisar Reporte de Insumos Defectuosos", "800x600")
+        
+        main_frame = ttk.Frame(ventana_conf, padding="20")
+        main_frame.pack(fill="both", expand=True)
+        
+        ttk.Label(main_frame, text="Revisar Reporte de Insumos Defectuosos", 
+                 style='Subtitle.TLabel').pack(pady=10)
+        
+        # Información general
+        info_text = f"""INFORMACIÓN GENERAL:
+Proveedor: {proveedor}
+Fecha del reporte: {fecha}
+Número de insumos reportados: {len(self.insumos_defectuosos)}
+
+DETALLE DE INSUMOS DEFECTUOSOS:
+"""
+        
+        text_frame = ttk.Frame(main_frame)
+        text_frame.pack(fill="both", expand=True, pady=10)
+        
+        text_widget = tk.Text(text_frame, height=20, wrap=tk.WORD)
+        scroll_text = ttk.Scrollbar(text_frame, orient="vertical", command=text_widget.yview)
+        text_widget.configure(yscrollcommand=scroll_text.set)
+        
+        text_widget.insert(tk.END, info_text)
+        
+        for i, insumo in enumerate(self.insumos_defectuosos, 1):
+            detalle = f"{i}. {insumo['producto']}\n"
+            detalle += f"   - Cantidad afectada: {insumo['cantidad']}\n"
+            detalle += f"   - Tipo de problema: {insumo['tipo_problema']}\n"
+            detalle += f"   - Observaciones: {insumo['observaciones']}\n\n"
+            text_widget.insert(tk.END, detalle)
+            
+        text_widget.config(state='disabled')
+        text_widget.pack(side="left", fill="both", expand=True)
+        scroll_text.pack(side="right", fill="y")
+        
+        # Botones de confirmación
+        btn_frame = ttk.Frame(main_frame)
+        btn_frame.pack(fill="x", pady=20)
+        
+        ttk.Button(btn_frame, text="✅ Todo Correcto - Guardar", 
+                  command=lambda: [ventana_conf.destroy(), self.guardar_reporte_defectuosos()],
+                  style='Success.TButton').pack(side="left", padx=10)
+        ttk.Button(btn_frame, text="✏️ Hacer Modificaciones", 
+                  command=ventana_conf.destroy).pack(side="left", padx=10)
+
+    def guardar_reporte_defectuosos(self):
+        """Guardar el reporte de insumos defectuosos"""
+        try:
+            proveedor = self.entry_proveedor_defecto.get().strip()
+            fecha = self.entry_fecha_defecto.get().strip()
+            
+            if not proveedor or not fecha or not hasattr(self, 'insumos_defectuosos') or not self.insumos_defectuosos:
+                messagebox.showwarning("Error", "Complete todos los campos requeridos")
+                return
+            
+            # Crear DataFrame con los datos
+            import pandas as pd
+            import os
+            from datetime import datetime
+            
+            datos_reporte = []
+            for insumo in self.insumos_defectuosos:
+                datos_reporte.append({
+                    'Proveedor': proveedor,
+                    'Fecha': fecha,
+                    'Producto': insumo['producto'],
+                    'Cantidad_Afectada': insumo['cantidad'],
+                    'Tipo_Problema': insumo['tipo_problema'],
+                    'Observaciones': insumo['observaciones'],
+                    'Fecha_Reporte': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                })
+            
+            df_reporte = pd.DataFrame(datos_reporte)
+            
+            # Guardar archivo Excel
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            nombre_archivo = f"data/reporte_defectuosos_{timestamp}.xlsx"
+            
+            # Asegurar que existe el directorio data
+            os.makedirs(os.path.dirname(nombre_archivo), exist_ok=True)
+            
+            df_reporte.to_excel(nombre_archivo, index=False)
+            
+            messagebox.showinfo("Éxito", 
+                f"✅ Reporte guardado exitosamente!\n\n"
+                f"📁 Archivo: {nombre_archivo}\n"
+                f"📊 Insumos reportados: {len(self.insumos_defectuosos)}\n"
+                f"🏢 Proveedor: {proveedor}")
+            
+            # Limpiar formulario después de guardar
+            self.limpiar_formulario_defectuosos()
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al guardar reporte: {str(e)}")
+
+    def enviar_reporte_defectuosos(self):
+        """Enviar reporte por email (placeholder para futura implementación)"""
+        if not hasattr(self, 'insumos_defectuosos') or not self.insumos_defectuosos:
+            messagebox.showwarning("Error", "No hay insumos defectuosos para enviar")
+            return
+            
+        messagebox.showinfo("Información", 
+            "📧 Funcionalidad de envío por email será implementada próximamente.\n\n"
+            "Por ahora, puede guardar el reporte y enviarlo manualmente.")
+
+    def limpiar_formulario_defectuosos(self):
+        """Limpiar todo el formulario de reportes defectuosos"""
+        if hasattr(self, 'entry_proveedor_defecto'):
+            self.entry_proveedor_defecto.delete(0, tk.END)
+        if hasattr(self, 'entry_fecha_defecto'):
+            self.entry_fecha_defecto.delete(0, tk.END)
+        if hasattr(self, 'entry_producto_defecto'):
+            self.entry_producto_defecto.delete(0, tk.END)
+        if hasattr(self, 'entry_cantidad_defecto'):
+            self.entry_cantidad_defecto.delete(0, tk.END)
+        if hasattr(self, 'entry_observaciones_defecto'):
+            self.entry_observaciones_defecto.delete(0, tk.END)
+        if hasattr(self, 'combo_tipo_defecto'):
+            self.combo_tipo_defecto.set("Calidad")
+        
+        # Limpiar lista y treeview
+        if hasattr(self, 'insumos_defectuosos'):
+            self.insumos_defectuosos.clear()
+        if hasattr(self, 'tree_defectuosos'):
+            self.tree_defectuosos.delete(*self.tree_defectuosos.get_children())
+        
+        # Restaurar fecha actual
+        if hasattr(self, 'entry_fecha_defecto'):
+            from datetime import datetime
+            self.entry_fecha_defecto.insert(0, datetime.now().strftime("%Y-%m-%d"))
+        
     # ==================== MÉTODOS AUXILIARES ====================
     
     def crear_ventana_secundaria(self, titulo, tamaño):
@@ -1361,1019 +1910,6 @@ def main():
         
     except Exception as e:
         messagebox.showerror("Error Fatal", f"Error al iniciar la aplicación: {e}")
-
-
-    # ==================== MÉTODOS MODERNOS INTEGRADOS ====================
-
-    def menu_inventario_completo(self):
-        """Menú modernizado completo para consultar inventario"""
-        ventana = self.crear_ventana_secundaria("Consultar Inventario", "900x700", "📦")
-
-        main_frame = ttk.Frame(ventana, style='Main.TFrame', padding=20)
-        main_frame.pack(fill="both", expand=True)
-
-        # Panel de acciones
-        acciones_card = ttk.Frame(main_frame, style='Card.TFrame', padding=20)
-        acciones_card.pack(fill="x", pady=(0, 20))
-
-        ttk.Label(acciones_card, text="🔧 Acciones Disponibles", 
-                 style='Subtitle.TLabel').pack(anchor="w", pady=(0, 15))
-
-        btn_frame = ttk.Frame(acciones_card, style='Card.TFrame')
-        btn_frame.pack(fill="x")
-        btn_frame.grid_columnconfigure((0, 1, 2), weight=1)
-
-        ttk.Button(btn_frame, text="📋 Ver Inventario Completo", 
-                  command=self.mostrar_inventario_completo_moderno,
-                  style='Primary.TButton').grid(row=0, column=0, padx=(0, 10), sticky="ew")
-        ttk.Button(btn_frame, text="🔍 Buscar Insumo", 
-                  command=self.buscar_insumo_moderno,
-                  style='Secondary.TButton').grid(row=0, column=1, padx=5, sticky="ew")
-        ttk.Button(btn_frame, text="👁️ Ver por ID", 
-                  command=self.ver_detalle_insumo_moderno,
-                  style='Success.TButton').grid(row=0, column=2, padx=(10, 0), sticky="ew")
-
-        # Área de resultados moderna
-        resultado_card = ttk.Frame(main_frame, style='Card.TFrame', padding=20)
-        resultado_card.pack(fill="both", expand=True)
-
-        ttk.Label(resultado_card, text="📊 Resultados", 
-                 style='Subtitle.TLabel').pack(anchor="w", pady=(0, 15))
-
-        # Área de texto con estilo moderno
-        text_frame = ttk.Frame(resultado_card, style='Card.TFrame')
-        text_frame.pack(fill="both", expand=True)
-        text_frame.grid_rowconfigure(0, weight=1)
-        text_frame.grid_columnconfigure(0, weight=1)
-
-        self.text_inventario = tk.Text(text_frame, height=20, width=80,
-                                      font=self.font_normal,
-                                      bg=self.colors['white'],
-                                      fg=self.colors['dark'],
-                                      selectbackground=self.colors['primary'],
-                                      relief='flat',
-                                      borderwidth=0)
-        scroll_inv = ttk.Scrollbar(text_frame, orient="vertical", 
-                                  command=self.text_inventario.yview)
-        self.text_inventario.configure(yscrollcommand=scroll_inv.set)
-
-        self.text_inventario.grid(row=0, column=0, sticky="nsew", padx=(0, 2))
-        scroll_inv.grid(row=0, column=1, sticky="ns")
-
-        # Mensaje inicial
-        self.text_inventario.insert(tk.END, 
-            "💡 Selecciona una acción para consultar el inventario...\n\n"
-            "📋 Ver Inventario Completo: Muestra todos los productos (ID 0-17)\n"
-            "🔍 Buscar Insumo: Busca por nombre de producto\n"
-            "👁️ Ver por ID: Muestra detalles específicos de un producto")
-
-
-    def mostrar_inventario_completo_moderno(self):
-        """Mostrar el inventario completo con formato moderno"""
-        df_inventario = cargar_excel(inventario)
-        if df_inventario.empty:
-            self.text_inventario.delete(1.0, tk.END)
-            self.text_inventario.insert(tk.END, "❌ No hay datos de inventario disponibles.")
-            return
-
-        self.text_inventario.delete(1.0, tk.END)
-        self.text_inventario.insert(tk.END, 
-            "📦 INVENTARIO COMPLETO\n"
-            "=" * 60 + "\n\n")
-
-        # Header de tabla
-        self.text_inventario.insert(tk.END, 
-            f"{'ID':<4} | {'PRODUCTO':<35} | {'CANTIDAD':<10} | {'ÚLTIMA ACTUALIZACIÓN':<15}\n")
-        self.text_inventario.insert(tk.END, "-" * 80 + "\n")
-
-        # Mostrar datos
-        df_mostrar = df_inventario.loc[0:17] if len(df_inventario) > 17 else df_inventario
-
-        for idx, row in df_mostrar.iterrows():
-            producto = str(row.get('producto', 'N/A'))[:35]
-            cantidad = str(row.get('cantidad', 'N/A'))
-            fecha = str(row.get('ultima_actualizacion', 'N/A'))[:15]
-
-            self.text_inventario.insert(tk.END, 
-                f"{idx:<4} | {producto:<35} | {cantidad:<10} | {fecha:<15}\n")
-
-        self.text_inventario.insert(tk.END, f"\n📊 Total de productos: {len(df_mostrar)}")
-
-
-    def buscar_insumo_moderno(self):
-        """Buscar insumo con interfaz moderna"""
-        # Crear ventana de búsqueda moderna
-        ventana_busqueda = ttk.Toplevel(self.root)
-        ventana_busqueda.title("Buscar Insumo")
-        ventana_busqueda.geometry("400x200")
-        ventana_busqueda.configure(bg=self.colors['light'])
-        ventana_busqueda.transient(self.root)
-        ventana_busqueda.grab_set()
-
-        # Card de búsqueda
-        search_card = ttk.Frame(ventana_busqueda, style='Card.TFrame', padding=30)
-        search_card.pack(fill="both", expand=True, padx=20, pady=20)
-
-        ttk.Label(search_card, text="🔍 Buscar Insumo", 
-                 style='Subtitle.TLabel').pack(pady=(0, 20))
-
-        ttk.Label(search_card, text="Ingrese el nombre del insumo:", 
-                 style='Custom.TLabel').pack(anchor="w", pady=(0, 10))
-
-        entry_busqueda = ttk.Entry(search_card, font=self.font_normal, 
-                                  style='Modern.TEntry', width=40)
-        entry_busqueda.pack(fill="x", pady=(0, 20))
-        entry_busqueda.focus()
-
-        def realizar_busqueda():
-            nombre = entry_busqueda.get().strip()
-            if not nombre:
-                messagebox.showwarning("Advertencia", "Ingrese un nombre para buscar")
-                return
-
-            df_inventario = cargar_excel(inventario)
-            df_inventario["producto_norm"] = df_inventario["producto"].astype(str).str.strip().str.lower()
-            nombre_norm = nombre.lower()
-            resultado = df_inventario[df_inventario["producto_norm"].str.contains(nombre_norm)]
-
-            self.text_inventario.delete(1.0, tk.END)
-            if resultado.empty:
-                self.text_inventario.insert(tk.END, 
-                    f"❌ No se encontraron insumos con el nombre '{nombre}'\n\n"
-                    "💡 Sugerencias:\n"
-                    "• Verifica la ortografía\n"
-                    "• Intenta con palabras más cortas\n"
-                    "• Usa términos generales")
-            else:
-                self.text_inventario.insert(tk.END, 
-                    f"🔍 RESULTADOS DE BÚSQUEDA: '{nombre}'\n"
-                    "=" * 50 + "\n\n")
-
-                for idx, row in resultado.iterrows():
-                    self.text_inventario.insert(tk.END, 
-                        f"📦 PRODUCTO: {row['producto']}\n"
-                        f"   📊 Cantidad: {row['cantidad']}\n"
-                        f"   🕒 Última actualización: {row.get('ultima_actualizacion', 'N/A')}\n"
-                        f"   🆔 ID: {idx}\n\n")
-
-                self.text_inventario.insert(tk.END, 
-                    f"✅ Se encontraron {len(resultado)} resultado(s)")
-
-            ventana_busqueda.destroy()
-
-        # Botones
-        btn_frame = ttk.Frame(search_card, style='Card.TFrame')
-        btn_frame.pack(fill="x")
-        btn_frame.grid_columnconfigure((0, 1), weight=1)
-
-        ttk.Button(btn_frame, text="🔍 Buscar", command=realizar_busqueda,
-                  style='Primary.TButton').grid(row=0, column=0, padx=(0, 10), sticky="ew")
-        ttk.Button(btn_frame, text="❌ Cancelar", command=ventana_busqueda.destroy,
-                  style='Success.TButton').grid(row=0, column=1, padx=(10, 0), sticky="ew")
-
-        # Bind Enter
-        ventana_busqueda.bind('<Return>', lambda e: realizar_busqueda())
-
-
-    def ver_detalle_insumo_moderno(self):
-        """Ver detalle de insumo por ID con interfaz moderna"""
-        # Crear ventana de selección moderna
-        ventana_detalle = ttk.Toplevel(self.root)
-        ventana_detalle.title("Ver Detalle por ID")
-        ventana_detalle.geometry("400x250")
-        ventana_detalle.configure(bg=self.colors['light'])
-        ventana_detalle.transient(self.root)
-        ventana_detalle.grab_set()
-
-        # Card de selección
-        detail_card = ttk.Frame(ventana_detalle, style='Card.TFrame', padding=30)
-        detail_card.pack(fill="both", expand=True, padx=20, pady=20)
-
-        ttk.Label(detail_card, text="👁️ Ver Detalle por ID", 
-                 style='Subtitle.TLabel').pack(pady=(0, 20))
-
-        ttk.Label(detail_card, text="Seleccione el ID del insumo (0-17):", 
-                 style='Custom.TLabel').pack(anchor="w", pady=(0, 10))
-
-        # Spinbox moderno para selección de ID
-        id_var = tk.StringVar(value="0")
-        spinbox_frame = ttk.Frame(detail_card, style='Card.TFrame')
-        spinbox_frame.pack(fill="x", pady=(0, 20))
-
-        id_spinbox = tk.Spinbox(spinbox_frame, from_=0, to=17, textvariable=id_var,
-                               font=self.font_normal, width=10,
-                               bg=self.colors['white'], fg=self.colors['dark'],
-                               relief='solid', borderwidth=2)
-        id_spinbox.pack(side="left")
-
-        def mostrar_detalle():
-            try:
-                idx = int(id_var.get())
-                if not (0 <= idx <= 17):
-                    messagebox.showerror("Error", "ID debe estar entre 0 y 17")
-                    return
-
-                df_inventario = cargar_excel(inventario)
-                if idx >= len(df_inventario):
-                    messagebox.showerror("Error", f"No existe producto con ID {idx}")
-                    return
-
-                row = df_inventario.iloc[idx]
-
-                # Mostrar detalle en el área principal
-                self.text_inventario.delete(1.0, tk.END)
-                self.text_inventario.insert(tk.END, 
-                    f"📋 DETALLE COMPLETO DEL INSUMO\n"
-                    "=" * 40 + "\n\n"
-                    f"🆔 ID: {idx}\n"
-                    f"📦 Producto: {row.get('producto', 'N/A')}\n"
-                    f"📊 Cantidad disponible: {row.get('cantidad', 'N/A')} unidades\n"
-                    f"🕒 Última actualización: {row.get('ultima_actualizacion', 'N/A')}\n\n"
-                    "=" * 40 + "\n"
-                    f"📈 Estado del inventario:\n")
-
-                cantidad = row.get('cantidad', 0)
-                if cantidad > 50:
-                    self.text_inventario.insert(tk.END, "✅ Stock alto - Bien abastecido\n")
-                elif cantidad > 20:
-                    self.text_inventario.insert(tk.END, "⚠️ Stock medio - Revisar pronto\n")
-                elif cantidad > 0:
-                    self.text_inventario.insert(tk.END, "🔴 Stock bajo - Reabastecer urgente\n")
-                else:
-                    self.text_inventario.insert(tk.END, "❌ Sin stock - Producto agotado\n")
-
-                ventana_detalle.destroy()
-
-            except ValueError:
-                messagebox.showerror("Error", "Ingrese un ID válido")
-
-        # Botones
-        btn_frame = ttk.Frame(detail_card, style='Card.TFrame')
-        btn_frame.pack(fill="x")
-        btn_frame.grid_columnconfigure((0, 1), weight=1)
-
-        ttk.Button(btn_frame, text="👁️ Ver Detalle", command=mostrar_detalle,
-                  style='Primary.TButton').grid(row=0, column=0, padx=(0, 10), sticky="ew")
-        ttk.Button(btn_frame, text="❌ Cancelar", command=ventana_detalle.destroy,
-                  style='Success.TButton').grid(row=0, column=1, padx=(10, 0), sticky="ew")
-
-
-    def menu_verificar_disponibilidad_completo(self):
-        """Menú modernizado completo para verificar disponibilidad"""
-        ventana = self.crear_ventana_secundaria("Verificar Disponibilidad de Insumos", "800x600", "✅")
-
-        main_frame = ttk.Frame(ventana, style='Main.TFrame', padding=20)
-        main_frame.pack(fill="both", expand=True)
-
-        # Panel de acciones moderno
-        acciones_card = ttk.Frame(main_frame, style='Card.TFrame', padding=20)
-        acciones_card.pack(fill="x", pady=(0, 20))
-
-        ttk.Label(acciones_card, text="🔧 Gestión de Disponibilidad", 
-                 style='Subtitle.TLabel').pack(anchor="w", pady=(0, 15))
-
-        # Grid de botones modernos
-        btn_grid = ttk.Frame(acciones_card, style='Card.TFrame')
-        btn_grid.pack(fill="x")
-        btn_grid.grid_columnconfigure((0, 1, 2), weight=1)
-
-        ttk.Button(btn_grid, text="📋 Generar Lista\nde Envío", 
-                  command=self.generar_lista_envio_moderno,
-                  style='Primary.TButton').grid(row=0, column=0, padx=(0, 10), sticky="ew")
-        ttk.Button(btn_grid, text="📧 Enviar Lista\npor Email", 
-                  command=self.enviar_lista_email_moderno,
-                  style='Secondary.TButton').grid(row=0, column=1, padx=5, sticky="ew")
-        ttk.Button(btn_grid, text="🔄 Actualizar\nInventario", 
-                  command=self.actualizar_inventario_moderno,
-                  style='Success.TButton').grid(row=0, column=2, padx=(10, 0), sticky="ew")
-
-        # Área de resultados moderna
-        resultado_card = ttk.Frame(main_frame, style='Card.TFrame', padding=20)
-        resultado_card.pack(fill="both", expand=True)
-
-        ttk.Label(resultado_card, text="📊 Estado de Disponibilidad", 
-                 style='Subtitle.TLabel').pack(anchor="w", pady=(0, 15))
-
-        # Área de texto estilizada
-        text_frame = ttk.Frame(resultado_card, style='Card.TFrame')
-        text_frame.pack(fill="both", expand=True)
-        text_frame.grid_rowconfigure(0, weight=1)
-        text_frame.grid_columnconfigure(0, weight=1)
-
-        self.text_disponibilidad = tk.Text(text_frame, height=15, width=70,
-                                          font=self.font_normal,
-                                          bg=self.colors['white'],
-                                          fg=self.colors['dark'],
-                                          selectbackground=self.colors['primary'],
-                                          relief='flat',
-                                          borderwidth=0)
-        scroll_disp = ttk.Scrollbar(text_frame, orient="vertical", 
-                                   command=self.text_disponibilidad.yview)
-        self.text_disponibilidad.configure(yscrollcommand=scroll_disp.set)
-
-        self.text_disponibilidad.grid(row=0, column=0, sticky="nsew", padx=(0, 2))
-        scroll_disp.grid(row=0, column=1, sticky="ns")
-
-        # Mensaje inicial
-        self.text_disponibilidad.insert(tk.END,
-            "💡 Gestión de Disponibilidad de Insumos\n\n"
-            "📋 Generar Lista de Envío: Identifica productos listos para enviar\n"
-            "📧 Enviar por Email: Envía la lista al coordinador de compras\n"
-            "🔄 Actualizar Inventario: Descuenta cantidades demandadas\n\n"
-            "Selecciona una acción para comenzar...")
-
-
-    def generar_lista_envio_moderno(self):
-        """Generar lista de envío con formato moderno"""
-        try:
-            lista = generar_lista_envio()
-
-            self.text_disponibilidad.delete(1.0, tk.END)
-            if lista.empty:
-                self.text_disponibilidad.insert(tk.END,
-                    "❌ ANÁLISIS DE DISPONIBILIDAD\n"
-                    "=" * 50 + "\n\n"
-                    "No hay insumos que cumplan completamente con la demanda actual.\n\n"
-                    "💡 Recomendaciones:\n"
-                    "• Revisar las solicitudes de compra pendientes\n"
-                    "• Verificar el inventario actual\n"
-                    "• Contactar proveedores para reabastecer")
-            else:
-                self.text_disponibilidad.insert(tk.END,
-                    "✅ INSUMOS LISTOS PARA ENVÍO\n"
-                    "=" * 50 + "\n\n")
-
-                total_productos = len(lista)
-                total_cantidad = lista['cantidad_a_enviar'].sum()
-
-                for idx, row in lista.iterrows():
-                    self.text_disponibilidad.insert(tk.END,
-                        f"📦 {row['producto']}\n"
-                        f"   📊 Cantidad a enviar: {row['cantidad_a_enviar']} unidades\n"
-                        f"   ✅ Estado: Listo para despacho\n\n")
-
-                self.text_disponibilidad.insert(tk.END,
-                    f"📈 RESUMEN:\n"
-                    f"• Total de productos listos: {total_productos}\n"
-                    f"• Cantidad total a enviar: {total_cantidad} unidades\n"
-                    f"• Estado general: ✅ Preparado para envío")
-
-        except Exception as e:
-            self.text_disponibilidad.delete(1.0, tk.END)
-            self.text_disponibilidad.insert(tk.END,
-                f"❌ ERROR EN LA GENERACIÓN\n"
-                f"=" * 40 + "\n\n"
-                f"Se produjo un error: {str(e)}\n\n"
-                f"💡 Verifique:\n"
-                f"• Que existan archivos de inventario y demanda\n"
-                f"• Que los archivos no estén abiertos en otra aplicación")
-
-
-    def enviar_lista_email_moderno(self):
-        """Enviar lista por email con confirmación moderna"""
-        # Ventana de confirmación moderna
-        ventana_confirm = ttk.Toplevel(self.root)
-        ventana_confirm.title("Confirmar Envío")
-        ventana_confirm.geometry("450x300")
-        ventana_confirm.configure(bg=self.colors['light'])
-        ventana_confirm.transient(self.root)
-        ventana_confirm.grab_set()
-
-        # Card de confirmación
-        confirm_card = ttk.Frame(ventana_confirm, style='Card.TFrame', padding=30)
-        confirm_card.pack(fill="both", expand=True, padx=20, pady=20)
-
-        # Icono y título
-        ttk.Label(confirm_card, text="📧", font=('Segoe UI', 48)).pack(pady=(0, 15))
-        ttk.Label(confirm_card, text="Confirmar Envío por Email", 
-                 style='Subtitle.TLabel').pack(pady=(0, 20))
-
-        # Información del envío
-        info_frame = ttk.Frame(confirm_card, style='Card.TFrame')
-        info_frame.pack(fill="x", pady=(0, 20))
-
-        ttk.Label(info_frame, text="📤 Destinatario: elcoordinadordecompras@gmail.com", 
-                 style='Custom.TLabel').pack(anchor="w", pady=2)
-        ttk.Label(info_frame, text="📋 Asunto: Lista de insumos listos para envío", 
-                 style='Custom.TLabel').pack(anchor="w", pady=2)
-        ttk.Label(info_frame, text="📎 Adjunto: insumos_listos.xlsx", 
-                 style='Custom.TLabel').pack(anchor="w", pady=2)
-
-        def confirmar_envio():
-            try:
-                # Mostrar progreso
-                progress_label = ttk.Label(confirm_card, text="📤 Enviando...", 
-                                         style='Custom.TLabel')
-                progress_label.pack(pady=10)
-                ventana_confirm.update()
-
-                # Enviar email
-                enviar_lista_insumos()
-
-                ventana_confirm.destroy()
-                messagebox.showinfo("Éxito", 
-                    "✅ Lista enviada exitosamente!\n\n"
-                    "📧 El coordinador de compras recibirá la lista de insumos "
-                    "listos para envío en su correo electrónico.")
-
-                # Actualizar área de resultados
-                self.text_disponibilidad.insert(tk.END,
-                    f"\n\n📧 EMAIL ENVIADO EXITOSAMENTE\n"
-                    f"🕒 Hora: {datetime.now().strftime('%H:%M:%S')}\n"
-                    f"📤 Estado: Entregado")
-
-            except Exception as e:
-                ventana_confirm.destroy()
-                messagebox.showerror("Error", 
-                    f"❌ Error al enviar email:\n{str(e)}\n\n"
-                    "Verifique su conexión a internet y la configuración SMTP.")
-
-        # Botones
-        btn_frame = ttk.Frame(confirm_card, style='Card.TFrame')
-        btn_frame.pack(fill="x")
-        btn_frame.grid_columnconfigure((0, 1), weight=1)
-
-        ttk.Button(btn_frame, text="📧 Enviar Ahora", command=confirmar_envio,
-                  style='Primary.TButton').grid(row=0, column=0, padx=(0, 10), sticky="ew")
-        ttk.Button(btn_frame, text="❌ Cancelar", command=ventana_confirm.destroy,
-                  style='Success.TButton').grid(row=0, column=1, padx=(10, 0), sticky="ew")
-
-
-    def actualizar_inventario_moderno(self):
-        """Actualizar inventario con confirmación moderna"""
-        # Ventana de confirmación
-        ventana_update = ttk.Toplevel(self.root)
-        ventana_update.title("Actualizar Inventario")
-        ventana_update.geometry("500x350")
-        ventana_update.configure(bg=self.colors['light'])
-        ventana_update.transient(self.root)
-        ventana_update.grab_set()
-
-        # Card principal
-        update_card = ttk.Frame(ventana_update, style='Card.TFrame', padding=30)
-        update_card.pack(fill="both", expand=True, padx=20, pady=20)
-
-        # Icono y título
-        ttk.Label(update_card, text="🔄", font=('Segoe UI', 48)).pack(pady=(0, 15))
-        ttk.Label(update_card, text="Actualizar Inventario", 
-                 style='Subtitle.TLabel').pack(pady=(0, 20))
-
-        # Advertencia
-        warning_frame = ttk.Frame(update_card, style='Card.TFrame')
-        warning_frame.pack(fill="x", pady=(0, 20))
-
-        ttk.Label(warning_frame, text="⚠️ ATENCIÓN", 
-                 style='Subtitle.TLabel', foreground='#E74C3C').pack()
-        ttk.Label(warning_frame, 
-                 text="Esta acción descontará las cantidades demandadas\n"
-                      "del inventario actual. El proceso es irreversible.\n\n"
-                      "Se actualizarán las fechas de última modificación.", 
-                 style='Custom.TLabel', justify='center').pack(pady=(10, 0))
-
-        def confirmar_actualizacion():
-            try:
-                # Mostrar progreso
-                progress_label = ttk.Label(update_card, text="🔄 Actualizando inventario...", 
-                                         style='Custom.TLabel')
-                progress_label.pack(pady=10)
-                ventana_update.update()
-
-                # Actualizar inventario
-                actualizar_inventario()
-
-                ventana_update.destroy()
-                messagebox.showinfo("Éxito", 
-                    "✅ Inventario actualizado correctamente!\n\n"
-                    "📊 Las cantidades demandadas han sido descontadas\n"
-                    "🕒 Fechas de actualización registradas")
-
-                # Actualizar área de resultados
-                self.text_disponibilidad.insert(tk.END,
-                    f"\n\n🔄 INVENTARIO ACTUALIZADO\n"
-                    f"🕒 Fecha: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-                    f"✅ Estado: Completado exitosamente")
-
-            except Exception as e:
-                ventana_update.destroy()
-                messagebox.showerror("Error", 
-                    f"❌ Error al actualizar inventario:\n{str(e)}")
-
-        # Botones
-        btn_frame = ttk.Frame(update_card, style='Card.TFrame')
-        btn_frame.pack(fill="x")
-        btn_frame.grid_columnconfigure((0, 1), weight=1)
-
-        ttk.Button(btn_frame, text="🔄 Actualizar", command=confirmar_actualizacion,
-                  style='Primary.TButton').grid(row=0, column=0, padx=(0, 10), sticky="ew")
-        ttk.Button(btn_frame, text="❌ Cancelar", command=ventana_update.destroy,
-                  style='Success.TButton').grid(row=0, column=1, padx=(10, 0), sticky="ew")
-
-
-
-    # ==================== MÉTODOS MODERNOS INTEGRADOS ====================
-
-    def menu_inventario_completo(self):
-        """Menú modernizado completo para consultar inventario"""
-        ventana = self.crear_ventana_secundaria("Consultar Inventario", "900x700", "📦")
-
-        main_frame = ttk.Frame(ventana, style='Main.TFrame', padding=20)
-        main_frame.pack(fill="both", expand=True)
-
-        # Panel de acciones
-        acciones_card = ttk.Frame(main_frame, style='Card.TFrame', padding=20)
-        acciones_card.pack(fill="x", pady=(0, 20))
-
-        ttk.Label(acciones_card, text="🔧 Acciones Disponibles", 
-                 style='Subtitle.TLabel').pack(anchor="w", pady=(0, 15))
-
-        btn_frame = ttk.Frame(acciones_card, style='Card.TFrame')
-        btn_frame.pack(fill="x")
-        btn_frame.grid_columnconfigure((0, 1, 2), weight=1)
-
-        ttk.Button(btn_frame, text="📋 Ver Inventario Completo", 
-                  command=self.mostrar_inventario_completo_moderno,
-                  style='Primary.TButton').grid(row=0, column=0, padx=(0, 10), sticky="ew")
-        ttk.Button(btn_frame, text="🔍 Buscar Insumo", 
-                  command=self.buscar_insumo_moderno,
-                  style='Secondary.TButton').grid(row=0, column=1, padx=5, sticky="ew")
-        ttk.Button(btn_frame, text="👁️ Ver por ID", 
-                  command=self.ver_detalle_insumo_moderno,
-                  style='Success.TButton').grid(row=0, column=2, padx=(10, 0), sticky="ew")
-
-        # Área de resultados moderna
-        resultado_card = ttk.Frame(main_frame, style='Card.TFrame', padding=20)
-        resultado_card.pack(fill="both", expand=True)
-
-        ttk.Label(resultado_card, text="📊 Resultados", 
-                 style='Subtitle.TLabel').pack(anchor="w", pady=(0, 15))
-
-        # Área de texto con estilo moderno
-        text_frame = ttk.Frame(resultado_card, style='Card.TFrame')
-        text_frame.pack(fill="both", expand=True)
-        text_frame.grid_rowconfigure(0, weight=1)
-        text_frame.grid_columnconfigure(0, weight=1)
-
-        self.text_inventario = tk.Text(text_frame, height=20, width=80,
-                                      font=self.font_normal,
-                                      bg=self.colors['white'],
-                                      fg=self.colors['dark'],
-                                      selectbackground=self.colors['primary'],
-                                      relief='flat',
-                                      borderwidth=0)
-        scroll_inv = ttk.Scrollbar(text_frame, orient="vertical", 
-                                  command=self.text_inventario.yview)
-        self.text_inventario.configure(yscrollcommand=scroll_inv.set)
-
-        self.text_inventario.grid(row=0, column=0, sticky="nsew", padx=(0, 2))
-        scroll_inv.grid(row=0, column=1, sticky="ns")
-
-        # Mensaje inicial
-        self.text_inventario.insert(tk.END, 
-            "💡 Selecciona una acción para consultar el inventario...\n\n"
-            "📋 Ver Inventario Completo: Muestra todos los productos (ID 0-17)\n"
-            "🔍 Buscar Insumo: Busca por nombre de producto\n"
-            "👁️ Ver por ID: Muestra detalles específicos de un producto")
-
-
-    def mostrar_inventario_completo_moderno(self):
-        """Mostrar el inventario completo con formato moderno"""
-        df_inventario = cargar_excel(inventario)
-        if df_inventario.empty:
-            self.text_inventario.delete(1.0, tk.END)
-            self.text_inventario.insert(tk.END, "❌ No hay datos de inventario disponibles.")
-            return
-
-        self.text_inventario.delete(1.0, tk.END)
-        self.text_inventario.insert(tk.END, 
-            "📦 INVENTARIO COMPLETO\n"
-            "=" * 60 + "\n\n")
-
-        # Header de tabla
-        self.text_inventario.insert(tk.END, 
-            f"{'ID':<4} | {'PRODUCTO':<35} | {'CANTIDAD':<10} | {'ÚLTIMA ACTUALIZACIÓN':<15}\n")
-        self.text_inventario.insert(tk.END, "-" * 80 + "\n")
-
-        # Mostrar datos
-        df_mostrar = df_inventario.loc[0:17] if len(df_inventario) > 17 else df_inventario
-
-        for idx, row in df_mostrar.iterrows():
-            producto = str(row.get('producto', 'N/A'))[:35]
-            cantidad = str(row.get('cantidad', 'N/A'))
-            fecha = str(row.get('ultima_actualizacion', 'N/A'))[:15]
-
-            self.text_inventario.insert(tk.END, 
-                f"{idx:<4} | {producto:<35} | {cantidad:<10} | {fecha:<15}\n")
-
-        self.text_inventario.insert(tk.END, f"\n📊 Total de productos: {len(df_mostrar)}")
-
-
-    def buscar_insumo_moderno(self):
-        """Buscar insumo con interfaz moderna"""
-        # Crear ventana de búsqueda moderna
-        ventana_busqueda = ttk.Toplevel(self.root)
-        ventana_busqueda.title("Buscar Insumo")
-        ventana_busqueda.geometry("400x200")
-        ventana_busqueda.configure(bg=self.colors['light'])
-        ventana_busqueda.transient(self.root)
-        ventana_busqueda.grab_set()
-
-        # Card de búsqueda
-        search_card = ttk.Frame(ventana_busqueda, style='Card.TFrame', padding=30)
-        search_card.pack(fill="both", expand=True, padx=20, pady=20)
-
-        ttk.Label(search_card, text="🔍 Buscar Insumo", 
-                 style='Subtitle.TLabel').pack(pady=(0, 20))
-
-        ttk.Label(search_card, text="Ingrese el nombre del insumo:", 
-                 style='Custom.TLabel').pack(anchor="w", pady=(0, 10))
-
-        entry_busqueda = ttk.Entry(search_card, font=self.font_normal, 
-                                  style='Modern.TEntry', width=40)
-        entry_busqueda.pack(fill="x", pady=(0, 20))
-        entry_busqueda.focus()
-
-        def realizar_busqueda():
-            nombre = entry_busqueda.get().strip()
-            if not nombre:
-                messagebox.showwarning("Advertencia", "Ingrese un nombre para buscar")
-                return
-
-            df_inventario = cargar_excel(inventario)
-            df_inventario["producto_norm"] = df_inventario["producto"].astype(str).str.strip().str.lower()
-            nombre_norm = nombre.lower()
-            resultado = df_inventario[df_inventario["producto_norm"].str.contains(nombre_norm)]
-
-            self.text_inventario.delete(1.0, tk.END)
-            if resultado.empty:
-                self.text_inventario.insert(tk.END, 
-                    f"❌ No se encontraron insumos con el nombre '{nombre}'\n\n"
-                    "💡 Sugerencias:\n"
-                    "• Verifica la ortografía\n"
-                    "• Intenta con palabras más cortas\n"
-                    "• Usa términos generales")
-            else:
-                self.text_inventario.insert(tk.END, 
-                    f"🔍 RESULTADOS DE BÚSQUEDA: '{nombre}'\n"
-                    "=" * 50 + "\n\n")
-
-                for idx, row in resultado.iterrows():
-                    self.text_inventario.insert(tk.END, 
-                        f"📦 PRODUCTO: {row['producto']}\n"
-                        f"   📊 Cantidad: {row['cantidad']}\n"
-                        f"   🕒 Última actualización: {row.get('ultima_actualizacion', 'N/A')}\n"
-                        f"   🆔 ID: {idx}\n\n")
-
-                self.text_inventario.insert(tk.END, 
-                    f"✅ Se encontraron {len(resultado)} resultado(s)")
-
-            ventana_busqueda.destroy()
-
-        # Botones
-        btn_frame = ttk.Frame(search_card, style='Card.TFrame')
-        btn_frame.pack(fill="x")
-        btn_frame.grid_columnconfigure((0, 1), weight=1)
-
-        ttk.Button(btn_frame, text="🔍 Buscar", command=realizar_busqueda,
-                  style='Primary.TButton').grid(row=0, column=0, padx=(0, 10), sticky="ew")
-        ttk.Button(btn_frame, text="❌ Cancelar", command=ventana_busqueda.destroy,
-                  style='Success.TButton').grid(row=0, column=1, padx=(10, 0), sticky="ew")
-
-        # Bind Enter
-        ventana_busqueda.bind('<Return>', lambda e: realizar_busqueda())
-
-
-    def ver_detalle_insumo_moderno(self):
-        """Ver detalle de insumo por ID con interfaz moderna"""
-        # Crear ventana de selección moderna
-        ventana_detalle = ttk.Toplevel(self.root)
-        ventana_detalle.title("Ver Detalle por ID")
-        ventana_detalle.geometry("400x250")
-        ventana_detalle.configure(bg=self.colors['light'])
-        ventana_detalle.transient(self.root)
-        ventana_detalle.grab_set()
-
-        # Card de selección
-        detail_card = ttk.Frame(ventana_detalle, style='Card.TFrame', padding=30)
-        detail_card.pack(fill="both", expand=True, padx=20, pady=20)
-
-        ttk.Label(detail_card, text="👁️ Ver Detalle por ID", 
-                 style='Subtitle.TLabel').pack(pady=(0, 20))
-
-        ttk.Label(detail_card, text="Seleccione el ID del insumo (0-17):", 
-                 style='Custom.TLabel').pack(anchor="w", pady=(0, 10))
-
-        # Spinbox moderno para selección de ID
-        id_var = tk.StringVar(value="0")
-        spinbox_frame = ttk.Frame(detail_card, style='Card.TFrame')
-        spinbox_frame.pack(fill="x", pady=(0, 20))
-
-        id_spinbox = tk.Spinbox(spinbox_frame, from_=0, to=17, textvariable=id_var,
-                               font=self.font_normal, width=10,
-                               bg=self.colors['white'], fg=self.colors['dark'],
-                               relief='solid', borderwidth=2)
-        id_spinbox.pack(side="left")
-
-        def mostrar_detalle():
-            try:
-                idx = int(id_var.get())
-                if not (0 <= idx <= 17):
-                    messagebox.showerror("Error", "ID debe estar entre 0 y 17")
-                    return
-
-                df_inventario = cargar_excel(inventario)
-                if idx >= len(df_inventario):
-                    messagebox.showerror("Error", f"No existe producto con ID {idx}")
-                    return
-
-                row = df_inventario.iloc[idx]
-
-                # Mostrar detalle en el área principal
-                self.text_inventario.delete(1.0, tk.END)
-                self.text_inventario.insert(tk.END, 
-                    f"📋 DETALLE COMPLETO DEL INSUMO\n"
-                    "=" * 40 + "\n\n"
-                    f"🆔 ID: {idx}\n"
-                    f"📦 Producto: {row.get('producto', 'N/A')}\n"
-                    f"📊 Cantidad disponible: {row.get('cantidad', 'N/A')} unidades\n"
-                    f"🕒 Última actualización: {row.get('ultima_actualizacion', 'N/A')}\n\n"
-                    "=" * 40 + "\n"
-                    f"📈 Estado del inventario:\n")
-
-                cantidad = row.get('cantidad', 0)
-                if cantidad > 50:
-                    self.text_inventario.insert(tk.END, "✅ Stock alto - Bien abastecido\n")
-                elif cantidad > 20:
-                    self.text_inventario.insert(tk.END, "⚠️ Stock medio - Revisar pronto\n")
-                elif cantidad > 0:
-                    self.text_inventario.insert(tk.END, "🔴 Stock bajo - Reabastecer urgente\n")
-                else:
-                    self.text_inventario.insert(tk.END, "❌ Sin stock - Producto agotado\n")
-
-                ventana_detalle.destroy()
-
-            except ValueError:
-                messagebox.showerror("Error", "Ingrese un ID válido")
-
-        # Botones
-        btn_frame = ttk.Frame(detail_card, style='Card.TFrame')
-        btn_frame.pack(fill="x")
-        btn_frame.grid_columnconfigure((0, 1), weight=1)
-
-        ttk.Button(btn_frame, text="👁️ Ver Detalle", command=mostrar_detalle,
-                  style='Primary.TButton').grid(row=0, column=0, padx=(0, 10), sticky="ew")
-        ttk.Button(btn_frame, text="❌ Cancelar", command=ventana_detalle.destroy,
-                  style='Success.TButton').grid(row=0, column=1, padx=(10, 0), sticky="ew")
-
-
-    def menu_verificar_disponibilidad_completo(self):
-        """Menú modernizado completo para verificar disponibilidad"""
-        ventana = self.crear_ventana_secundaria("Verificar Disponibilidad de Insumos", "800x600", "✅")
-
-        main_frame = ttk.Frame(ventana, style='Main.TFrame', padding=20)
-        main_frame.pack(fill="both", expand=True)
-
-        # Panel de acciones moderno
-        acciones_card = ttk.Frame(main_frame, style='Card.TFrame', padding=20)
-        acciones_card.pack(fill="x", pady=(0, 20))
-
-        ttk.Label(acciones_card, text="🔧 Gestión de Disponibilidad", 
-                 style='Subtitle.TLabel').pack(anchor="w", pady=(0, 15))
-
-        # Grid de botones modernos
-        btn_grid = ttk.Frame(acciones_card, style='Card.TFrame')
-        btn_grid.pack(fill="x")
-        btn_grid.grid_columnconfigure((0, 1, 2), weight=1)
-
-        ttk.Button(btn_grid, text="📋 Generar Lista\nde Envío", 
-                  command=self.generar_lista_envio_moderno,
-                  style='Primary.TButton').grid(row=0, column=0, padx=(0, 10), sticky="ew")
-        ttk.Button(btn_grid, text="📧 Enviar Lista\npor Email", 
-                  command=self.enviar_lista_email_moderno,
-                  style='Secondary.TButton').grid(row=0, column=1, padx=5, sticky="ew")
-        ttk.Button(btn_grid, text="🔄 Actualizar\nInventario", 
-                  command=self.actualizar_inventario_moderno,
-                  style='Success.TButton').grid(row=0, column=2, padx=(10, 0), sticky="ew")
-
-        # Área de resultados moderna
-        resultado_card = ttk.Frame(main_frame, style='Card.TFrame', padding=20)
-        resultado_card.pack(fill="both", expand=True)
-
-        ttk.Label(resultado_card, text="📊 Estado de Disponibilidad", 
-                 style='Subtitle.TLabel').pack(anchor="w", pady=(0, 15))
-
-        # Área de texto estilizada
-        text_frame = ttk.Frame(resultado_card, style='Card.TFrame')
-        text_frame.pack(fill="both", expand=True)
-        text_frame.grid_rowconfigure(0, weight=1)
-        text_frame.grid_columnconfigure(0, weight=1)
-
-        self.text_disponibilidad = tk.Text(text_frame, height=15, width=70,
-                                          font=self.font_normal,
-                                          bg=self.colors['white'],
-                                          fg=self.colors['dark'],
-                                          selectbackground=self.colors['primary'],
-                                          relief='flat',
-                                          borderwidth=0)
-        scroll_disp = ttk.Scrollbar(text_frame, orient="vertical", 
-                                   command=self.text_disponibilidad.yview)
-        self.text_disponibilidad.configure(yscrollcommand=scroll_disp.set)
-
-        self.text_disponibilidad.grid(row=0, column=0, sticky="nsew", padx=(0, 2))
-        scroll_disp.grid(row=0, column=1, sticky="ns")
-
-        # Mensaje inicial
-        self.text_disponibilidad.insert(tk.END,
-            "💡 Gestión de Disponibilidad de Insumos\n\n"
-            "📋 Generar Lista de Envío: Identifica productos listos para enviar\n"
-            "📧 Enviar por Email: Envía la lista al coordinador de compras\n"
-            "🔄 Actualizar Inventario: Descuenta cantidades demandadas\n\n"
-            "Selecciona una acción para comenzar...")
-
-
-    def generar_lista_envio_moderno(self):
-        """Generar lista de envío con formato moderno"""
-        try:
-            lista = generar_lista_envio()
-
-            self.text_disponibilidad.delete(1.0, tk.END)
-            if lista.empty:
-                self.text_disponibilidad.insert(tk.END,
-                    "❌ ANÁLISIS DE DISPONIBILIDAD\n"
-                    "=" * 50 + "\n\n"
-                    "No hay insumos que cumplan completamente con la demanda actual.\n\n"
-                    "💡 Recomendaciones:\n"
-                    "• Revisar las solicitudes de compra pendientes\n"
-                    "• Verificar el inventario actual\n"
-                    "• Contactar proveedores para reabastecer")
-            else:
-                self.text_disponibilidad.insert(tk.END,
-                    "✅ INSUMOS LISTOS PARA ENVÍO\n"
-                    "=" * 50 + "\n\n")
-
-                total_productos = len(lista)
-                total_cantidad = lista['cantidad_a_enviar'].sum()
-
-                for idx, row in lista.iterrows():
-                    self.text_disponibilidad.insert(tk.END,
-                        f"📦 {row['producto']}\n"
-                        f"   📊 Cantidad a enviar: {row['cantidad_a_enviar']} unidades\n"
-                        f"   ✅ Estado: Listo para despacho\n\n")
-
-                self.text_disponibilidad.insert(tk.END,
-                    f"📈 RESUMEN:\n"
-                    f"• Total de productos listos: {total_productos}\n"
-                    f"• Cantidad total a enviar: {total_cantidad} unidades\n"
-                    f"• Estado general: ✅ Preparado para envío")
-
-        except Exception as e:
-            self.text_disponibilidad.delete(1.0, tk.END)
-            self.text_disponibilidad.insert(tk.END,
-                f"❌ ERROR EN LA GENERACIÓN\n"
-                f"=" * 40 + "\n\n"
-                f"Se produjo un error: {str(e)}\n\n"
-                f"💡 Verifique:\n"
-                f"• Que existan archivos de inventario y demanda\n"
-                f"• Que los archivos no estén abiertos en otra aplicación")
-
-
-    def enviar_lista_email_moderno(self):
-        """Enviar lista por email con confirmación moderna"""
-        # Ventana de confirmación moderna
-        ventana_confirm = ttk.Toplevel(self.root)
-        ventana_confirm.title("Confirmar Envío")
-        ventana_confirm.geometry("450x300")
-        ventana_confirm.configure(bg=self.colors['light'])
-        ventana_confirm.transient(self.root)
-        ventana_confirm.grab_set()
-
-        # Card de confirmación
-        confirm_card = ttk.Frame(ventana_confirm, style='Card.TFrame', padding=30)
-        confirm_card.pack(fill="both", expand=True, padx=20, pady=20)
-
-        # Icono y título
-        ttk.Label(confirm_card, text="📧", font=('Segoe UI', 48)).pack(pady=(0, 15))
-        ttk.Label(confirm_card, text="Confirmar Envío por Email", 
-                 style='Subtitle.TLabel').pack(pady=(0, 20))
-
-        # Información del envío
-        info_frame = ttk.Frame(confirm_card, style='Card.TFrame')
-        info_frame.pack(fill="x", pady=(0, 20))
-
-        ttk.Label(info_frame, text="📤 Destinatario: elcoordinadordecompras@gmail.com", 
-                 style='Custom.TLabel').pack(anchor="w", pady=2)
-        ttk.Label(info_frame, text="📋 Asunto: Lista de insumos listos para envío", 
-                 style='Custom.TLabel').pack(anchor="w", pady=2)
-        ttk.Label(info_frame, text="📎 Adjunto: insumos_listos.xlsx", 
-                 style='Custom.TLabel').pack(anchor="w", pady=2)
-
-        def confirmar_envio():
-            try:
-                # Mostrar progreso
-                progress_label = ttk.Label(confirm_card, text="📤 Enviando...", 
-                                         style='Custom.TLabel')
-                progress_label.pack(pady=10)
-                ventana_confirm.update()
-
-                # Enviar email
-                enviar_lista_insumos()
-
-                ventana_confirm.destroy()
-                messagebox.showinfo("Éxito", 
-                    "✅ Lista enviada exitosamente!\n\n"
-                    "📧 El coordinador de compras recibirá la lista de insumos "
-                    "listos para envío en su correo electrónico.")
-
-                # Actualizar área de resultados
-                self.text_disponibilidad.insert(tk.END,
-                    f"\n\n📧 EMAIL ENVIADO EXITOSAMENTE\n"
-                    f"🕒 Hora: {datetime.now().strftime('%H:%M:%S')}\n"
-                    f"📤 Estado: Entregado")
-
-            except Exception as e:
-                ventana_confirm.destroy()
-                messagebox.showerror("Error", 
-                    f"❌ Error al enviar email:\n{str(e)}\n\n"
-                    "Verifique su conexión a internet y la configuración SMTP.")
-
-        # Botones
-        btn_frame = ttk.Frame(confirm_card, style='Card.TFrame')
-        btn_frame.pack(fill="x")
-        btn_frame.grid_columnconfigure((0, 1), weight=1)
-
-        ttk.Button(btn_frame, text="📧 Enviar Ahora", command=confirmar_envio,
-                  style='Primary.TButton').grid(row=0, column=0, padx=(0, 10), sticky="ew")
-        ttk.Button(btn_frame, text="❌ Cancelar", command=ventana_confirm.destroy,
-                  style='Success.TButton').grid(row=0, column=1, padx=(10, 0), sticky="ew")
-
-
-    def actualizar_inventario_moderno(self):
-        """Actualizar inventario con confirmación moderna"""
-        # Ventana de confirmación
-        ventana_update = ttk.Toplevel(self.root)
-        ventana_update.title("Actualizar Inventario")
-        ventana_update.geometry("500x350")
-        ventana_update.configure(bg=self.colors['light'])
-        ventana_update.transient(self.root)
-        ventana_update.grab_set()
-
-        # Card principal
-        update_card = ttk.Frame(ventana_update, style='Card.TFrame', padding=30)
-        update_card.pack(fill="both", expand=True, padx=20, pady=20)
-
-        # Icono y título
-        ttk.Label(update_card, text="🔄", font=('Segoe UI', 48)).pack(pady=(0, 15))
-        ttk.Label(update_card, text="Actualizar Inventario", 
-                 style='Subtitle.TLabel').pack(pady=(0, 20))
-
-        # Advertencia
-        warning_frame = ttk.Frame(update_card, style='Card.TFrame')
-        warning_frame.pack(fill="x", pady=(0, 20))
-
-        ttk.Label(warning_frame, text="⚠️ ATENCIÓN", 
-                 style='Subtitle.TLabel', foreground='#E74C3C').pack()
-        ttk.Label(warning_frame, 
-                 text="Esta acción descontará las cantidades demandadas\n"
-                      "del inventario actual. El proceso es irreversible.\n\n"
-                      "Se actualizarán las fechas de última modificación.", 
-                 style='Custom.TLabel', justify='center').pack(pady=(10, 0))
-
-        def confirmar_actualizacion():
-            try:
-                # Mostrar progreso
-                progress_label = ttk.Label(update_card, text="🔄 Actualizando inventario...", 
-                                         style='Custom.TLabel')
-                progress_label.pack(pady=10)
-                ventana_update.update()
-
-                # Actualizar inventario
-                actualizar_inventario()
-
-                ventana_update.destroy()
-                messagebox.showinfo("Éxito", 
-                    "✅ Inventario actualizado correctamente!\n\n"
-                    "📊 Las cantidades demandadas han sido descontadas\n"
-                    "🕒 Fechas de actualización registradas")
-
-                # Actualizar área de resultados
-                self.text_disponibilidad.insert(tk.END,
-                    f"\n\n🔄 INVENTARIO ACTUALIZADO\n"
-                    f"🕒 Fecha: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-                    f"✅ Estado: Completado exitosamente")
-
-            except Exception as e:
-                ventana_update.destroy()
-                messagebox.showerror("Error", 
-                    f"❌ Error al actualizar inventario:\n{str(e)}")
-
-        # Botones
-        btn_frame = ttk.Frame(update_card, style='Card.TFrame')
-        btn_frame.pack(fill="x")
-        btn_frame.grid_columnconfigure((0, 1), weight=1)
-
-        ttk.Button(btn_frame, text="🔄 Actualizar", command=confirmar_actualizacion,
-                  style='Primary.TButton').grid(row=0, column=0, padx=(0, 10), sticky="ew")
-        ttk.Button(btn_frame, text="❌ Cancelar", command=ventana_update.destroy,
-                  style='Success.TButton').grid(row=0, column=1, padx=(10, 0), sticky="ew")
 
 
 if __name__ == "__main__":
