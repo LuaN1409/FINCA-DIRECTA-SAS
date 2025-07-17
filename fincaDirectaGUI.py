@@ -546,11 +546,11 @@ class SistemaFincaDirectaGUI:
             ("📊 Consultar Demanda de Pedidos", "Análisis de solicitudes (HU4)", self.menu_consulta_pedidos, 0, 0),
             ("📦 Consultar Inventario", "Control de stock disponible (HU1)", self.menu_inventario, 0, 1),
             ("✅ Verificar Disponibilidad", "Validar insumos requeridos (HU2)", self.menu_verificar_disponibilidad, 0, 2),
-            ("� Solicitud de Compra", "Generar solicitudes de insumos (HU3)", self.menu_solicitud_compra_hu3, 0, 3),
+            ("� Solicitud de Compra", "Generar solicitudes de insumos (HU3)", self.menu_registro_pedidos_hu3, 0, 3),
             ("�📥 Recepción de Insumos", "Registrar llegadas (HU5)", self.menu_recepcion_insumos, 1, 0),
             ("� Reportar Insumos Defectuosos", "Control de calidad y cantidad (HU6)", self.menu_reportar_defectuosos, 1, 0),
             ("�📋 Reportes de Recepción", "Estadísticas de recepción (HU7)", self.menu_reportes_recepcion, 1, 1),
-            ("🛒 Reportes de Solicitudes", "Gestión de compras (HU8)", self.menu_reportes_solicitudes, 1, 2),
+            ("🛒 Reportes de Solicitudes", "Gestión de compras (HU8)", self.menu_solicitud_compra_hu8, 1, 2),
             ("🚚 Reportes Insumos Listos", "Estado de preparación (HU10)", self.menu_reportes_insumos_listos, 1, 3),
             ("⚙️ Configuración", "Ajustes del sistema", self.mostrar_configuracion, 2, 0)
         ]
@@ -1024,88 +1024,624 @@ class SistemaFincaDirectaGUI:
         except Exception as e:
             messagebox.showerror("Error", f"Error al actualizar inventario: {e}")
 
-    def menu_solicitud_compra_hu3(self):
-        """Menú completo para solicitud de compra de insumos - HU3"""
-        ventana = self.crear_ventana_secundaria("🛒 Solicitud de Compra de Insumos - HU3", "1000x700")
+    def menu_solicitud_compra_hu8(self):
+        """Menú completo para reportes de solicitudes de compra - HU8"""
+        ventana = self.crear_ventana_secundaria("🛒 Reportes de Solicitudes de Compra - HU8", "1200x800")
         
         main_frame = ttk.Frame(ventana, padding="20")
         main_frame.pack(fill="both", expand=True)
         
-        ttk.Label(main_frame, text="Generar Solicitud de Compra de Insumos", 
+        ttk.Label(main_frame, text="Reportes de Solicitudes de Compra", 
                  style='Subtitle.TLabel').pack(pady=10)
         
-        # Frame de información
-        info_frame = ttk.LabelFrame(main_frame, text="Información del Proceso", padding="15")
-        info_frame.pack(fill="x", pady=10)
+        # Frame principal con notebook para pestañas
+        notebook = ttk.Notebook(main_frame)
+        notebook.pack(fill="both", expand=True, pady=10)
         
-        info_text = """HU3 - Esta funcionalidad permite generar solicitudes de compra de insumos 
-identificando automáticamente los productos faltantes comparando la demanda con el inventario disponible."""
-        ttk.Label(info_frame, text=info_text, justify="left").pack(anchor="w")
+        # === PESTAÑA 1: FILTRAR SOLICITUDES ===
+        tab_filtrar = ttk.Frame(notebook)
+        notebook.add(tab_filtrar, text="🔍 Filtrar Solicitudes")
         
-        # Frame de acciones
-        acciones_frame = ttk.LabelFrame(main_frame, text="Acciones Disponibles", padding="15")
-        acciones_frame.pack(fill="x", pady=10)
+        filtrar_frame = ttk.Frame(tab_filtrar, padding="20")
+        filtrar_frame.pack(fill="both", expand=True)
         
-        # Botones de acción
-        btn_frame = ttk.Frame(acciones_frame)
-        btn_frame.pack(fill="x", pady=10)
+        ttk.Label(filtrar_frame, text="Filtrar Solicitudes por Fecha", 
+                 style='Subtitle.TLabel').pack(pady=10)
         
-        ttk.Button(btn_frame, text="🔍 Generar Solicitud", 
-                  command=self.ejecutar_hu3_directo,
+        # Frame para filtros de fecha
+        filtro_frame = ttk.LabelFrame(filtrar_frame, text="Filtrar por Fechas", padding="10")
+        filtro_frame.pack(fill="x", pady=10)
+        
+        fecha_frame = ttk.Frame(filtro_frame)
+        fecha_frame.pack(fill="x")
+        
+        ttk.Label(fecha_frame, text="Fecha inicio:").pack(side="left", padx=5)
+        self.entry_fecha_ini_solicitudes = ttk.Entry(fecha_frame, width=15, style='Custom.TEntry')
+        self.entry_fecha_ini_solicitudes.pack(side="left", padx=5)
+        
+        ttk.Label(fecha_frame, text="Fecha fin:").pack(side="left", padx=5)
+        self.entry_fecha_fin_solicitudes = ttk.Entry(fecha_frame, width=15, style='Custom.TEntry')
+        self.entry_fecha_fin_solicitudes.pack(side="left", padx=5)
+        
+        ttk.Button(fecha_frame, text="🔍 Filtrar", 
+                  command=self.filtrar_solicitudes_fecha,
                   style='Primary.TButton').pack(side="left", padx=10)
         
-        ttk.Button(btn_frame, text="🎨 Usar Interfaz Avanzada", 
-                  command=self.abrir_hu8_completa,
+        # Lista de solicitudes filtradas
+        lista_frame = ttk.LabelFrame(filtrar_frame, text="Solicitudes Filtradas", padding="10")
+        lista_frame.pack(fill="both", expand=True, pady=10)
+        
+        # Crear Treeview para mostrar solicitudes
+        columns = ('ID', 'Fecha', 'Proveedor', 'Estado')
+        self.tree_solicitudes = ttk.Treeview(lista_frame, columns=columns, show='headings', height=15)
+        
+        self.tree_solicitudes.heading('ID', text='ID')
+        self.tree_solicitudes.heading('Fecha', text='Fecha')
+        self.tree_solicitudes.heading('Proveedor', text='Proveedor')
+        self.tree_solicitudes.heading('Estado', text='Estado')
+        
+        self.tree_solicitudes.column('ID', width=100)
+        self.tree_solicitudes.column('Fecha', width=150)
+        self.tree_solicitudes.column('Proveedor', width=200)
+        self.tree_solicitudes.column('Estado', width=150)
+        
+        # Scrollbar para el Treeview
+        scrollbar_solicitudes = ttk.Scrollbar(lista_frame, orient="vertical", command=self.tree_solicitudes.yview)
+        self.tree_solicitudes.configure(yscrollcommand=scrollbar_solicitudes.set)
+        
+        self.tree_solicitudes.pack(side="left", fill="both", expand=True)
+        scrollbar_solicitudes.pack(side="right", fill="y")
+        
+        # Botones de acción para solicitudes
+        botones_sol_frame = ttk.Frame(filtrar_frame)
+        botones_sol_frame.pack(fill="x", pady=20)
+        
+        ttk.Button(botones_sol_frame, text="👁️ Ver Detalle", 
+                  command=self.ver_detalle_solicitud,
                   style='Success.TButton').pack(side="left", padx=10)
         
+        ttk.Button(botones_sol_frame, text="💾 Descargar Reporte", 
+                  command=self.descargar_reporte_solicitud,
+                  style='Secondary.TButton').pack(side="left", padx=10)
+        
+        # === PESTAÑA 2: GENERAR NUEVA SOLICITUD ===
+        tab_generar = ttk.Frame(notebook)
+        notebook.add(tab_generar, text="🛒 Generar Solicitud")
+        
+        generar_frame = ttk.Frame(tab_generar, padding="20")
+        generar_frame.pack(fill="both", expand=True)
+        
+        ttk.Label(generar_frame, text="Generar Nueva Solicitud de Compra", 
+                 style='Subtitle.TLabel').pack(pady=10)
+        
+        # Información de la funcionalidad
+        info_frame = ttk.LabelFrame(generar_frame, text="Información", padding="15")
+        info_frame.pack(fill="x", pady=10)
+        
+        info_text = """Esta función analiza automáticamente la demanda vs inventario para 
+identificar productos faltantes y generar solicitudes de compra."""
+        ttk.Label(info_frame, text=info_text, justify="left").pack(anchor="w")
+        
         # Área de resultados
-        resultados_frame = ttk.LabelFrame(main_frame, text="Resultados", padding="15")
+        resultados_frame = ttk.LabelFrame(generar_frame, text="Productos Faltantes Detectados", padding="15")
         resultados_frame.pack(fill="both", expand=True, pady=10)
         
-        self.text_hu3 = tk.Text(resultados_frame, height=20, width=80,
-                               bg='white', fg='#2C3E50', font=("Arial", 10))
-        scroll_hu3 = ttk.Scrollbar(resultados_frame, orient="vertical", command=self.text_hu3.yview)
-        self.text_hu3.configure(yscrollcommand=scroll_hu3.set)
+        # Crear Treeview para mostrar productos faltantes
+        columns_falt = ('Producto', 'Demanda', 'Inventario', 'Cantidad Faltante')
+        self.tree_faltantes = ttk.Treeview(resultados_frame, columns=columns_falt, show='headings', height=15)
         
-        self.text_hu3.pack(side="left", fill="both", expand=True)
-        scroll_hu3.pack(side="right", fill="y")
+        self.tree_faltantes.heading('Producto', text='Producto')
+        self.tree_faltantes.heading('Demanda', text='Demanda')
+        self.tree_faltantes.heading('Inventario', text='Inventario')
+        self.tree_faltantes.heading('Cantidad Faltante', text='Cantidad Faltante')
         
-        # Mostrar información inicial
-        self.text_hu3.insert(tk.END, "🛒 SOLICITUD DE COMPRA DE INSUMOS - HU3\n")
-        self.text_hu3.insert(tk.END, "=" * 50 + "\n\n")
-        self.text_hu3.insert(tk.END, "📋 Sistema de generación automática de solicitudes de compra\n\n")
-        self.text_hu3.insert(tk.END, "Opciones disponibles:\n")
-        self.text_hu3.insert(tk.END, "• Generar solicitud automáticamente\n")
-        self.text_hu3.insert(tk.END, "• Usar interfaz avanzada con funciones adicionales\n\n")
-        self.text_hu3.insert(tk.END, "Para comenzar, seleccione una de las opciones anteriores.\n")
+        self.tree_faltantes.column('Producto', width=250)
+        self.tree_faltantes.column('Demanda', width=100)
+        self.tree_faltantes.column('Inventario', width=100)
+        self.tree_faltantes.column('Cantidad Faltante', width=150)
+        
+        # Scrollbar para el Treeview de faltantes
+        scrollbar_faltantes = ttk.Scrollbar(resultados_frame, orient="vertical", command=self.tree_faltantes.yview)
+        self.tree_faltantes.configure(yscrollcommand=scrollbar_faltantes.set)
+        
+        self.tree_faltantes.pack(side="left", fill="both", expand=True)
+        scrollbar_faltantes.pack(side="right", fill="y")
+        
+        # Botones de acción para generar
+        botones_generar_frame = ttk.Frame(generar_frame)
+        botones_generar_frame.pack(fill="x", pady=20)
+        
+        ttk.Button(botones_generar_frame, text="🔄 Detectar Faltantes", 
+                  command=self.detectar_productos_faltantes,
+                  style='Primary.TButton').pack(side="left", padx=10)
+        
+        ttk.Button(botones_generar_frame, text="💾 Guardar Solicitud", 
+                  command=self.guardar_solicitud_compra,
+                  style='Success.TButton').pack(side="left", padx=10)
 
-    def ejecutar_hu3_directo(self):
-        """Ejecutar HU3 directamente con captura de salida"""
+    def filtrar_solicitudes_fecha(self):
+        """Filtrar solicitudes por fecha"""
         try:
-            self.text_hu3.delete(1.0, tk.END)
-            self.text_hu3.insert(tk.END, "🔄 Generando solicitud de compra...\n\n")
+            from main import filtrar_solicitudes_fecha as filtrar_sol_main
+            
+            fecha_ini = self.entry_fecha_ini_solicitudes.get().strip()
+            fecha_fin = self.entry_fecha_fin_solicitudes.get().strip()
+            
+            if not fecha_ini or not fecha_fin:
+                messagebox.showerror("Error", "Ambas fechas son obligatorias")
+                return
+            
+            # Leer archivo de solicitudes
+            archivo_solicitudes = os.path.join("data", "solicitudes_compras.xlsx")
+            if not os.path.exists(archivo_solicitudes):
+                messagebox.showwarning("Advertencia", "No hay solicitudes registradas")
+                return
+            
+            df_solicitudes = pd.read_excel(archivo_solicitudes)
+            if df_solicitudes.empty:
+                messagebox.showinfo("Info", "No hay solicitudes para mostrar")
+                return
+            
+            # Filtrar por fechas
+            try:
+                df_solicitudes['fecha'] = pd.to_datetime(df_solicitudes['fecha'])
+                ini_dt = pd.to_datetime(fecha_ini)
+                fin_dt = pd.to_datetime(fecha_fin)
+                df_filtrado = df_solicitudes[(df_solicitudes['fecha'] >= ini_dt) & (df_solicitudes['fecha'] <= fin_dt)]
+            except Exception as e:
+                messagebox.showerror("Error", f"Fechas inválidas: {e}")
+                return
+            
+            # Limpiar tree y cargar datos
+            for item in self.tree_solicitudes.get_children():
+                self.tree_solicitudes.delete(item)
+            
+            if df_filtrado.empty:
+                messagebox.showinfo("Resultado", "No hay solicitudes en ese rango de fechas")
+            else:
+                # Agrupar por ID y mostrar resumen
+                for id_sol, grupo in df_filtrado.groupby('id'):
+                    primera_fila = grupo.iloc[0]
+                    self.tree_solicitudes.insert('', 'end', values=(
+                        id_sol,
+                        primera_fila['fecha'].strftime('%Y-%m-%d'),
+                        primera_fila.get('proveedor', 'N/A'),
+                        primera_fila.get('estado', 'Pendiente')
+                    ))
+                
+                self.df_solicitudes_filtradas = df_filtrado
+                messagebox.showinfo("Éxito", f"Se encontraron {len(df_filtrado.groupby('id'))} solicitudes")
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al filtrar solicitudes: {str(e)}")
+
+    def ver_detalle_solicitud(self):
+        """Ver detalle de la solicitud seleccionada"""
+        try:
+            selection = self.tree_solicitudes.selection()
+            if not selection:
+                messagebox.showwarning("Advertencia", "Seleccione una solicitud para ver el detalle")
+                return
+            
+            item = self.tree_solicitudes.item(selection[0])
+            id_solicitud = item['values'][0]
+            
+            # Buscar detalles en el DataFrame filtrado
+            if hasattr(self, 'df_solicitudes_filtradas'):
+                detalle = self.df_solicitudes_filtradas[self.df_solicitudes_filtradas['id'] == id_solicitud]
+                
+                if not detalle.empty:
+                    # Crear ventana de detalle
+                    ventana_detalle = self.crear_ventana_secundaria("📋 Detalle de Solicitud", "800x600")
+                    
+                    frame_detalle = ttk.Frame(ventana_detalle, padding="20")
+                    frame_detalle.pack(fill="both", expand=True)
+                    
+                    ttk.Label(frame_detalle, text=f"Detalle de Solicitud ID: {id_solicitud}", 
+                             style='Subtitle.TLabel').pack(pady=10)
+                    
+                    # Crear texto con detalles
+                    text_detalle = tk.Text(frame_detalle, height=20, width=80, 
+                                          font=("Consolas", 10), bg="#f8f9fa", fg="#2c3e50")
+                    scroll_detalle = ttk.Scrollbar(frame_detalle, orient="vertical", command=text_detalle.yview)
+                    text_detalle.configure(yscrollcommand=scroll_detalle.set)
+                    
+                    text_detalle.pack(side="left", fill="both", expand=True)
+                    scroll_detalle.pack(side="right", fill="y")
+                    
+                    # Llenar con información
+                    text_detalle.insert(tk.END, f"📋 SOLICITUD DE COMPRA - ID: {id_solicitud}\n")
+                    text_detalle.insert(tk.END, "=" * 50 + "\n\n")
+                    
+                    primera_fila = detalle.iloc[0]
+                    text_detalle.insert(tk.END, f"📅 Fecha: {primera_fila['fecha'].strftime('%Y-%m-%d')}\n")
+                    text_detalle.insert(tk.END, f"🏢 Proveedor: {primera_fila.get('proveedor', 'N/A')}\n")
+                    text_detalle.insert(tk.END, f"📊 Estado: {primera_fila.get('estado', 'Pendiente')}\n\n")
+                    
+                    text_detalle.insert(tk.END, "📦 PRODUCTOS SOLICITADOS:\n")
+                    text_detalle.insert(tk.END, "-" * 30 + "\n")
+                    
+                    for _, row in detalle.iterrows():
+                        text_detalle.insert(tk.END, f"• {row.get('producto', 'N/A')}: {row.get('cantidad', 0)} unidades\n")
+                else:
+                    messagebox.showerror("Error", "No se encontraron detalles para esta solicitud")
+            else:
+                messagebox.showwarning("Advertencia", "Primero debe filtrar las solicitudes")
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al ver detalle: {str(e)}")
+
+    def descargar_reporte_solicitud(self):
+        """Descargar reporte de solicitud seleccionada"""
+        try:
+            selection = self.tree_solicitudes.selection()
+            if not selection:
+                messagebox.showwarning("Advertencia", "Seleccione una solicitud para descargar")
+                return
+            
+            item = self.tree_solicitudes.item(selection[0])
+            id_solicitud = item['values'][0]
+            
+            if hasattr(self, 'df_solicitudes_filtradas'):
+                detalle = self.df_solicitudes_filtradas[self.df_solicitudes_filtradas['id'] == id_solicitud]
+                
+                if not detalle.empty:
+                    archivo = os.path.join("data", f"reporte_solicitud_{id_solicitud}.xlsx")
+                    detalle.to_excel(archivo, index=False)
+                    messagebox.showinfo("Éxito", f"✅ Reporte guardado en:\n{archivo}")
+                else:
+                    messagebox.showerror("Error", "No se encontraron datos para descargar")
+            else:
+                messagebox.showwarning("Advertencia", "Primero debe filtrar las solicitudes")
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al descargar reporte: {str(e)}")
+
+    def detectar_productos_faltantes(self):
+        """Detectar productos faltantes comparando demanda vs inventario"""
+        try:
+            from main import obtener_insumos_faltantes
+            
+            # Limpiar tree de faltantes
+            for item in self.tree_faltantes.get_children():
+                self.tree_faltantes.delete(item)
+            
+            # Obtener productos faltantes
+            faltantes = obtener_insumos_faltantes()
+            
+            if faltantes.empty:
+                messagebox.showinfo("Resultado", "✅ No hay productos faltantes detectados.\nEl inventario actual cubre toda la demanda.")
+                return
+            
+            # Cargar datos en el tree
+            for _, row in faltantes.iterrows():
+                self.tree_faltantes.insert('', 'end', values=(
+                    row.get('producto', 'N/A'),
+                    row.get('cantidad_demandada', 0),
+                    row.get('cantidad_disponible', 0),
+                    row.get('cantidad_faltante', 0)
+                ))
+            
+            self.df_faltantes_actual = faltantes
+            messagebox.showinfo("Resultado", f"📊 Se detectaron {len(faltantes)} productos faltantes")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al detectar faltantes: {str(e)}")
+
+    def guardar_solicitud_compra(self):
+        """Guardar solicitud de compra basada en productos faltantes"""
+        try:
+            if not hasattr(self, 'df_faltantes_actual') or self.df_faltantes_actual.empty:
+                messagebox.showwarning("Advertencia", "Primero debe detectar productos faltantes")
+                return
+            
+            from datetime import datetime
+            
+            # Generar ID único para la solicitud
+            id_solicitud = int(datetime.now().strftime('%Y%m%d%H%M%S'))
+            fecha_actual = datetime.now().strftime('%Y-%m-%d')
+            
+            # Preparar datos para guardar
+            solicitud_data = []
+            for _, row in self.df_faltantes_actual.iterrows():
+                solicitud_data.append({
+                    'id': id_solicitud,
+                    'fecha': fecha_actual,
+                    'producto': row.get('producto', 'N/A'),
+                    'cantidad': row.get('cantidad_faltante', 0),
+                    'proveedor': 'Por definir',
+                    'estado': 'Pendiente',
+                    'fecha_creacion': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                })
+            
+            df_nueva_solicitud = pd.DataFrame(solicitud_data)
+            
+            # Guardar en archivo
+            archivo_solicitudes = os.path.join("data", "solicitudes_compras.xlsx")
+            
+            if os.path.exists(archivo_solicitudes):
+                df_existente = pd.read_excel(archivo_solicitudes)
+                df_final = pd.concat([df_existente, df_nueva_solicitud], ignore_index=True)
+            else:
+                df_final = df_nueva_solicitud
+            
+            df_final.to_excel(archivo_solicitudes, index=False)
+            
+            messagebox.showinfo("Éxito", 
+                f"✅ Solicitud de compra creada exitosamente!\n\n"
+                f"🆔 ID: {id_solicitud}\n"
+                f"📅 Fecha: {fecha_actual}\n"
+                f"📦 Productos: {len(df_nueva_solicitud)}\n"
+                f"💾 Guardado en: {archivo_solicitudes}")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al guardar solicitud: {str(e)}")
+
+    def ejecutar_hu8_directo(self):
+        """Ejecutar HU8 directamente con captura de salida"""
+        try:
+            self.text_hu8.delete(1.0, tk.END)
+            self.text_hu8.insert(tk.END, "🔄 Generando solicitud de compra...\n\n")
             
             # Ejecutar detección de faltantes
             from main import obtener_insumos_faltantes
             faltantes = obtener_insumos_faltantes()
             
             if faltantes.empty:
-                self.text_hu3.insert(tk.END, "✅ No hay productos faltantes detectados.\n")
-                self.text_hu3.insert(tk.END, "El inventario actual cubre toda la demanda.\n")
+                self.text_hu8.insert(tk.END, "✅ No hay productos faltantes detectados.\n")
+                self.text_hu8.insert(tk.END, "El inventario actual cubre toda la demanda.\n")
             else:
-                self.text_hu3.insert(tk.END, f"📊 Se detectaron {len(faltantes)} productos faltantes:\n\n")
+                self.text_hu8.insert(tk.END, f"📊 Se detectaron {len(faltantes)} productos faltantes:\n\n")
                 
                 for _, row in faltantes.iterrows():
-                    self.text_hu3.insert(tk.END, 
+                    self.text_hu8.insert(tk.END, 
                         f"• ID: {row['id']} | Producto: {row['producto']} | Cantidad: {row['cantidad']}\n")
                 
-                self.text_hu3.insert(tk.END, "\n🛒 Solicitud de compra generada automáticamente.\n")
-                self.text_hu3.insert(tk.END, "💾 Para guardar y enviar por email, use la interfaz avanzada.\n")
+                self.text_hu8.insert(tk.END, "\n🛒 Solicitud de compra generada automáticamente.\n")
+                self.text_hu8.insert(tk.END, "💾 Para guardar y enviar por email, use la interfaz avanzada.\n")
             
-            self.text_hu3.insert(tk.END, "\n✅ Proceso de generación completado.")
+            self.text_hu8.insert(tk.END, "\n✅ Proceso de generación completado.")
             
         except Exception as e:
-            self.text_hu3.insert(tk.END, f"❌ Error al generar solicitud: {str(e)}\n")
+            self.text_hu8.insert(tk.END, f"❌ Error al generar solicitud: {str(e)}\n")
+
+    def menu_registro_pedidos_hu3(self):
+        """HU3 - Registro de Pedidos de Insumos"""
+        ventana = self.crear_ventana_secundaria("📋 Registro de Pedidos - HU3", "800x600")
+        
+        main_frame = ttk.Frame(ventana, padding="20")
+        main_frame.pack(fill="both", expand=True)
+        
+        ttk.Label(main_frame, text="Registro de Pedidos de Insumos", 
+                 style='Subtitle.TLabel').pack(pady=10)
+        
+        # Frame de información
+        info_frame = ttk.LabelFrame(main_frame, text="Información del Proceso", padding="15")
+        info_frame.pack(fill="x", pady=10)
+        
+        info_text = """HU3 - Captura de requerimientos de insumos para las granjas.
+Esta función permite registrar nuevos pedidos que luego serán analizados para generar demanda."""
+        ttk.Label(info_frame, text=info_text, justify="left").pack(anchor="w")
+        
+        # Frame para captura de datos
+        datos_frame = ttk.LabelFrame(main_frame, text="Datos del Pedido", padding="15")
+        datos_frame.pack(fill="x", pady=10)
+        
+        # Campos de entrada
+        ttk.Label(datos_frame, text="Granja:").grid(row=0, column=0, sticky="w", padx=5, pady=5)
+        self.entry_granja_hu3 = ttk.Entry(datos_frame, width=30)
+        self.entry_granja_hu3.grid(row=0, column=1, padx=5, pady=5)
+        
+        ttk.Label(datos_frame, text="Fecha (YYYY-MM-DD):").grid(row=1, column=0, sticky="w", padx=5, pady=5)
+        self.entry_fecha_hu3 = ttk.Entry(datos_frame, width=30)
+        self.entry_fecha_hu3.grid(row=1, column=1, padx=5, pady=5)
+        
+        ttk.Label(datos_frame, text="Producto:").grid(row=2, column=0, sticky="w", padx=5, pady=5)
+        self.entry_producto_hu3 = ttk.Entry(datos_frame, width=30)
+        self.entry_producto_hu3.grid(row=2, column=1, padx=5, pady=5)
+        
+        ttk.Label(datos_frame, text="Cantidad:").grid(row=3, column=0, sticky="w", padx=5, pady=5)
+        self.entry_cantidad_hu3 = ttk.Entry(datos_frame, width=30)
+        self.entry_cantidad_hu3.grid(row=3, column=1, padx=5, pady=5)
+        
+        # Botones
+        botones_frame = ttk.Frame(main_frame)
+        botones_frame.pack(fill="x", pady=20)
+        
+        ttk.Button(botones_frame, text="💾 Guardar Pedido", 
+                  command=self.guardar_pedido_hu3,
+                  style='Success.TButton').pack(side="left", padx=10)
+        ttk.Button(botones_frame, text="📊 Ver Pedidos", 
+                  command=self.ver_pedidos_hu3).pack(side="left", padx=10)
+        ttk.Button(botones_frame, text="🧹 Limpiar", 
+                  command=self.limpiar_campos_hu3).pack(side="left", padx=10)
+        
+        # Área de resultados
+        resultados_frame = ttk.LabelFrame(main_frame, text="Últimos Pedidos", padding="15")
+        resultados_frame.pack(fill="both", expand=True, pady=10)
+        
+        self.text_pedidos_hu3 = tk.Text(resultados_frame, height=10, wrap=tk.WORD, 
+                                       font=("Consolas", 10), bg="#f8f9fa", fg="#2c3e50")
+        scroll_pedidos_hu3 = ttk.Scrollbar(resultados_frame, orient="vertical", command=self.text_pedidos_hu3.yview)
+        self.text_pedidos_hu3.configure(yscrollcommand=scroll_pedidos_hu3.set)
+        
+        self.text_pedidos_hu3.pack(side="left", fill="both", expand=True)
+        scroll_pedidos_hu3.pack(side="right", fill="y")
+        
+        # Cargar pedidos existentes
+        self.cargar_pedidos_existentes_hu3()
+
+    def guardar_pedido_hu3(self):
+        """Guardar nuevo pedido de insumos"""
+        try:
+            granja = self.entry_granja_hu3.get().strip()
+            fecha = self.entry_fecha_hu3.get().strip()
+            producto = self.entry_producto_hu3.get().strip()
+            cantidad_str = self.entry_cantidad_hu3.get().strip()
+            
+            if not all([granja, fecha, producto, cantidad_str]):
+                messagebox.showwarning("Error", "Por favor complete todos los campos")
+                return
+            
+            try:
+                cantidad = float(cantidad_str)
+                if cantidad <= 0:
+                    raise ValueError("La cantidad debe ser mayor a 0")
+            except ValueError:
+                messagebox.showwarning("Error", "Por favor ingrese una cantidad válida")
+                return
+            
+            import pandas as pd
+            import os
+            from datetime import datetime
+            
+            # Crear registro del pedido
+            nuevo_pedido = {
+                'id': datetime.now().strftime('%Y%m%d%H%M%S'),
+                'granja': granja,
+                'fecha': fecha,
+                'producto': producto,
+                'cantidad': cantidad,
+                'estado': 'Pendiente',
+                'fecha_registro': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+            
+            # Guardar en archivo
+            archivo_pedidos = os.path.join("data", "pedidos_granja.xlsx")
+            
+            if os.path.exists(archivo_pedidos):
+                df_pedidos = pd.read_excel(archivo_pedidos)
+                df_pedidos = pd.concat([df_pedidos, pd.DataFrame([nuevo_pedido])], ignore_index=True)
+            else:
+                df_pedidos = pd.DataFrame([nuevo_pedido])
+            
+            df_pedidos.to_excel(archivo_pedidos, index=False)
+            
+            messagebox.showinfo("Éxito", 
+                f"✅ Pedido registrado correctamente!\n\n"
+                f"🏢 Granja: {granja}\n"
+                f"📦 Producto: {producto}\n"
+                f"📊 Cantidad: {cantidad}")
+            
+            # Limpiar campos y actualizar vista
+            self.limpiar_campos_hu3()
+            self.cargar_pedidos_existentes_hu3()
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al guardar pedido: {str(e)}")
+
+    def ver_pedidos_hu3(self):
+        """Ver todos los pedidos registrados"""
+        try:
+            import pandas as pd
+            import os
+            
+            archivo_pedidos = os.path.join("data", "pedidos_granja.xlsx")
+            
+            if not os.path.exists(archivo_pedidos):
+                messagebox.showinfo("Sin Datos", "No hay pedidos registrados aún")
+                return
+            
+            df_pedidos = pd.read_excel(archivo_pedidos)
+            
+            if df_pedidos.empty:
+                messagebox.showinfo("Sin Datos", "No hay pedidos registrados")
+                return
+            
+            # Mostrar en nueva ventana
+            ventana_pedidos = self.crear_ventana_secundaria("📊 Pedidos Registrados", "900x600")
+            
+            frame_pedidos = ttk.Frame(ventana_pedidos, padding="20")
+            frame_pedidos.pack(fill="both", expand=True)
+            
+            # Crear Treeview para mostrar pedidos
+            columns = ('ID', 'Granja', 'Fecha', 'Producto', 'Cantidad', 'Estado')
+            tree_pedidos = ttk.Treeview(frame_pedidos, columns=columns, show='headings', height=15)
+            
+            for col in columns:
+                tree_pedidos.heading(col, text=col)
+                tree_pedidos.column(col, width=120)
+            
+            # Llenar con datos
+            for _, row in df_pedidos.iterrows():
+                tree_pedidos.insert('', 'end', values=(
+                    row['id'], row['granja'], row['fecha'], 
+                    row['producto'], row['cantidad'], row['estado']
+                ))
+            
+            scrollbar_pedidos = ttk.Scrollbar(frame_pedidos, orient="vertical", command=tree_pedidos.yview)
+            tree_pedidos.configure(yscrollcommand=scrollbar_pedidos.set)
+            
+            tree_pedidos.pack(side="left", fill="both", expand=True)
+            scrollbar_pedidos.pack(side="right", fill="y")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al cargar pedidos: {str(e)}")
+
+    def limpiar_campos_hu3(self):
+        """Limpiar todos los campos de entrada"""
+        self.entry_granja_hu3.delete(0, tk.END)
+        self.entry_fecha_hu3.delete(0, tk.END)
+        self.entry_producto_hu3.delete(0, tk.END)
+        self.entry_cantidad_hu3.delete(0, tk.END)
+        self.entry_granja_hu3.focus()
+
+    def cargar_pedidos_existentes_hu3(self):
+        """Cargar y mostrar pedidos existentes en el área de texto"""
+        try:
+            import pandas as pd
+            import os
+            
+            # Asegurar que el directorio data existe
+            data_dir = "data"
+            if not os.path.exists(data_dir):
+                os.makedirs(data_dir)
+            
+            self.text_pedidos_hu3.delete(1.0, tk.END)
+            self.text_pedidos_hu3.insert(tk.END, "📋 PEDIDOS DE INSUMOS REGISTRADOS\n")
+            self.text_pedidos_hu3.insert(tk.END, "=" * 50 + "\n\n")
+            
+            archivo_pedidos = os.path.join("data", "pedidos_granja.xlsx")
+            
+            if not os.path.exists(archivo_pedidos):
+                self.text_pedidos_hu3.insert(tk.END, "No hay pedidos registrados aún.\n")
+                self.text_pedidos_hu3.insert(tk.END, "Use el formulario superior para agregar pedidos.\n")
+                return
+            
+            try:
+                df_pedidos = pd.read_excel(archivo_pedidos)
+                
+                if df_pedidos.empty:
+                    self.text_pedidos_hu3.insert(tk.END, "No hay pedidos registrados.\n")
+                    return
+                
+                # Verificar que las columnas existan
+                columnas_requeridas = ['granja', 'producto', 'cantidad', 'fecha']
+                if not all(col in df_pedidos.columns for col in columnas_requeridas):
+                    self.text_pedidos_hu3.insert(tk.END, "Archivo de pedidos con formato incorrecto.\n")
+                    self.text_pedidos_hu3.insert(tk.END, "Use el formulario para crear nuevos pedidos.\n")
+                    return
+                
+                self.text_pedidos_hu3.insert(tk.END, f"Total de pedidos: {len(df_pedidos)}\n\n")
+                
+                # Mostrar últimos 5 pedidos
+                ultimos_pedidos = df_pedidos.tail(5)
+                for _, row in ultimos_pedidos.iterrows():
+                    self.text_pedidos_hu3.insert(tk.END, 
+                        f"🏢 {row['granja']} | 📦 {row['producto']} | "
+                        f"📊 {row['cantidad']} | 📅 {row['fecha']}\n")
+                
+                if len(df_pedidos) > 5:
+                    self.text_pedidos_hu3.insert(tk.END, f"\n... y {len(df_pedidos) - 5} pedidos más\n")
+                
+                self.text_pedidos_hu3.insert(tk.END, "\nUse 'Ver Pedidos' para ver la lista completa.\n")
+                
+            except Exception as read_error:
+                self.text_pedidos_hu3.insert(tk.END, f"Error al leer archivo de pedidos: {str(read_error)}\n")
+                self.text_pedidos_hu3.insert(tk.END, "Use el formulario superior para agregar pedidos.\n")
+            
+        except Exception as e:
+            self.text_pedidos_hu3.insert(tk.END, f"Error general: {str(e)}\n")
 
     def abrir_hu8_completa(self):
         """Abrir la interfaz completa de solicitudes (HU8)"""
@@ -1213,148 +1749,149 @@ identificando automáticamente los productos faltantes comparando la demanda con
                                                  state="readonly")
         self.combo_estado_modificar.pack(side="left", padx=5)
         
-        ttk.Button(modify_frame, text="🔄 Modificar Estado", 
+        ttk.Button(modify_frame, text="✏️ Modificar", 
                   command=self.modificar_estado_producto).pack(side="left", padx=5)
-        ttk.Button(modify_frame, text="🗑️ Eliminar Producto", 
+        ttk.Button(modify_frame, text="🗑️ Eliminar", 
                   command=self.eliminar_producto).pack(side="left", padx=5)
         
-        # Botones de acción
-        btn_frame = ttk.Frame(main_frame)
-        btn_frame.pack(fill="x", pady=10)
+        # Botones finales
+        botones_frame = ttk.Frame(main_frame)
+        botones_frame.pack(fill="x", pady=20)
         
-        ttk.Button(btn_frame, text="✅ Procesar Recepción", 
-                  command=self.procesar_recepcion_completa).pack(side="left", padx=5)
-        ttk.Button(btn_frame, text="🗑️ Limpiar", 
-                  command=self.limpiar_recepcion).pack(side="left", padx=5)
+        ttk.Button(botones_frame, text="💾 Guardar Recepción", 
+                  command=self.guardar_recepcion_insumos,
+                  style='Success.TButton').pack(side="left", padx=10)
         
+        ttk.Button(botones_frame, text="📋 Ver Recepciones", 
+                  command=self.ver_recepciones_hu5).pack(side="left", padx=10)
+        
+        ttk.Button(botones_frame, text="🧹 Limpiar Todo", 
+                  command=self.limpiar_campos_recepcion).pack(side="left", padx=10)
+
     def agregar_producto_recibido(self):
-        """Agregar producto a la lista de productos recibidos con estado de conformidad"""
-        producto = self.entry_producto_nuevo.get().strip()
-        estado = self.combo_estado_nuevo.get()
-        
+        """Agregar producto a la lista de recepción"""
         try:
-            cantidad = int(self.entry_cantidad_nueva.get().strip())
-        except ValueError:
-            messagebox.showerror("Error", "La cantidad debe ser un número entero")
-            return
+            producto = self.entry_producto_nuevo.get().strip()
+            cantidad_str = self.entry_cantidad_nueva.get().strip()
+            estado = self.combo_estado_nuevo.get()
             
-        if not producto or cantidad <= 0:
-            messagebox.showerror("Error", "Ingrese un producto válido y cantidad mayor a 0")
-            return
+            if not producto or not cantidad_str or not estado:
+                messagebox.showerror("Error", "Todos los campos son obligatorios")
+                return
             
-        if not estado:
-            messagebox.showerror("Error", "Debe seleccionar un estado (Conforme/No conforme)")
-            return
+            try:
+                cantidad = int(cantidad_str)
+                if cantidad <= 0:
+                    raise ValueError("La cantidad debe ser mayor a 0")
+            except ValueError:
+                messagebox.showerror("Error", "La cantidad debe ser un número entero positivo")
+                return
             
-        # Agregar producto con estado de conformidad
-        self.productos_recibidos.append((producto, cantidad, estado))
-        
-        # Agregar al Treeview
-        item_count = len(self.productos_recibidos)
-        item_id = self.tree_productos.insert('', 'end', text=str(item_count),
-                                            values=(producto, cantidad, estado))
-        
-        # Aplicar color según estado
-        if estado == "No conforme":
-            self.tree_productos.set(item_id, 'Estado', f"🚫 {estado}")
-        else:
-            self.tree_productos.set(item_id, 'Estado', f"✅ {estado}")
-        
-        # Limpiar campos
-        self.entry_producto_nuevo.delete(0, tk.END)
-        self.entry_cantidad_nueva.delete(0, tk.END)
-        self.combo_estado_nuevo.set("Conforme")  # Resetear a valor por defecto
-        
+            # Agregar al tree
+            item_id = self.tree_productos.insert('', 'end', 
+                                                text=str(len(self.productos_recibidos) + 1),
+                                                values=(producto, cantidad, estado))
+            
+            # Agregar a la lista interna
+            self.productos_recibidos.append({
+                'producto': producto,
+                'cantidad': cantidad,
+                'estado': estado,
+                'item_id': item_id
+            })
+            
+            # Limpiar campos
+            self.entry_producto_nuevo.delete(0, tk.END)
+            self.entry_cantidad_nueva.delete(0, tk.END)
+            self.combo_estado_nuevo.set("Conforme")
+            
+            messagebox.showinfo("Éxito", f"✅ Producto '{producto}' agregado correctamente")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al agregar producto: {str(e)}")
+
     def modificar_estado_producto(self):
-        """Modificar el estado de conformidad del producto seleccionado"""
-        selected_item = self.tree_productos.selection()
-        if not selected_item:
-            messagebox.showwarning("Advertencia", "Debe seleccionar un producto de la lista")
-            return
+        """Modificar estado del producto seleccionado"""
+        try:
+            selection = self.tree_productos.selection()
+            if not selection:
+                messagebox.showwarning("Advertencia", "Seleccione un producto para modificar")
+                return
             
-        nuevo_estado = self.combo_estado_modificar.get()
-        if not nuevo_estado:
-            messagebox.showwarning("Advertencia", "Debe seleccionar un nuevo estado")
-            return
+            nuevo_estado = self.combo_estado_modificar.get()
+            if not nuevo_estado:
+                messagebox.showerror("Error", "Seleccione un estado")
+                return
             
-        # Obtener índice del producto
-        item_text = self.tree_productos.item(selected_item[0])['text']
-        indice = int(item_text) - 1
-        
-        # Actualizar en la lista
-        producto, cantidad, _ = self.productos_recibidos[indice]
-        self.productos_recibidos[indice] = (producto, cantidad, nuevo_estado)
-        
-        # Actualizar en el Treeview
-        if nuevo_estado == "No conforme":
-            self.tree_productos.set(selected_item[0], 'Estado', f"🚫 {nuevo_estado}")
-        else:
-            self.tree_productos.set(selected_item[0], 'Estado', f"✅ {nuevo_estado}")
+            item = selection[0]
+            valores = list(self.tree_productos.item(item)['values'])
+            valores[2] = nuevo_estado  # Cambiar el estado
             
-        messagebox.showinfo("Éxito", f"Estado actualizado a: {nuevo_estado}")
-        
+            self.tree_productos.item(item, values=valores)
+            
+            # Actualizar en la lista interna
+            for producto in self.productos_recibidos:
+                if producto['item_id'] == item:
+                    producto['estado'] = nuevo_estado
+                    break
+            
+            messagebox.showinfo("Éxito", f"✅ Estado cambiado a: {nuevo_estado}")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al modificar estado: {str(e)}")
+
     def eliminar_producto(self):
         """Eliminar producto seleccionado"""
-        selected_item = self.tree_productos.selection()
-        if not selected_item:
-            messagebox.showwarning("Advertencia", "Debe seleccionar un producto de la lista")
-            return
-            
-        # Confirmar eliminación
-        if messagebox.askyesno("Confirmar", "¿Está seguro de eliminar este producto?"):
-            # Obtener índice del producto
-            item_text = self.tree_productos.item(selected_item[0])['text']
-            indice = int(item_text) - 1
-            
-            # Eliminar de la lista
-            del self.productos_recibidos[indice]
-            
-            # Reconstruir el Treeview
-            self.tree_productos.delete(*self.tree_productos.get_children())
-            for i, (producto, cantidad, estado) in enumerate(self.productos_recibidos):
-                item_id = self.tree_productos.insert('', 'end', text=str(i+1),
-                                                    values=(producto, cantidad, estado))
-                if estado == "No conforme":
-                    self.tree_productos.set(item_id, 'Estado', f"🚫 {estado}")
-                else:
-                    self.tree_productos.set(item_id, 'Estado', f"✅ {estado}")
-        
-    def limpiar_recepcion(self):
-        """Limpiar todos los campos de recepción"""
-        self.entry_proveedor.delete(0, tk.END)
-        self.entry_fecha_recepcion.delete(0, tk.END)
-        self.entry_numero_pedido.delete(0, tk.END)
-        self.entry_producto_nuevo.delete(0, tk.END)
-        self.entry_cantidad_nueva.delete(0, tk.END)
-        self.combo_estado_nuevo.set("Conforme")
-        self.combo_estado_modificar.set("")
-        self.tree_productos.delete(*self.tree_productos.get_children())
-        self.productos_recibidos = []
-        
-    def procesar_recepcion_completa(self):
-        """Procesar la recepción completa de insumos con estado de conformidad"""
-        proveedor = self.entry_proveedor.get().strip()
-        fecha = self.entry_fecha_recepcion.get().strip()
-        numero_pedido = self.entry_numero_pedido.get().strip()
-        
-        if not proveedor or not fecha or not numero_pedido:
-            messagebox.showerror("Error", "Todos los campos de información son obligatorios")
-            return
-            
-        if not self.productos_recibidos:
-            messagebox.showerror("Error", "Debe agregar al menos un producto")
-            return
-            
         try:
+            selection = self.tree_productos.selection()
+            if not selection:
+                messagebox.showwarning("Advertencia", "Seleccione un producto para eliminar")
+                return
+            
+            if messagebox.askyesno("Confirmar", "¿Está seguro de eliminar este producto?"):
+                item = selection[0]
+                
+                # Eliminar de la lista interna
+                self.productos_recibidos = [p for p in self.productos_recibidos if p['item_id'] != item]
+                
+                # Eliminar del tree
+                self.tree_productos.delete(item)
+                
+                # Reordenar números
+                for i, item_id in enumerate(self.tree_productos.get_children()):
+                    self.tree_productos.item(item_id, text=str(i + 1))
+                
+                messagebox.showinfo("Éxito", "✅ Producto eliminado correctamente")
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al eliminar producto: {str(e)}")
+
+    def guardar_recepcion_insumos(self):
+        """Guardar la recepción de insumos usando funciones de main.py"""
+        try:
+            proveedor = self.entry_proveedor.get().strip()
+            fecha = self.entry_fecha_recepcion.get().strip()
+            numero_pedido = self.entry_numero_pedido.get().strip()
+            
+            if not proveedor or not fecha or not numero_pedido:
+                messagebox.showerror("Error", "Todos los campos de información son obligatorios")
+                return
+            
+            if not self.productos_recibidos:
+                messagebox.showerror("Error", "Debe agregar al menos un producto")
+                return
+            
+            from datetime import datetime
+            from main import guardar_excel, cargar_excel, entregas, detalle_entregas, ingresar_inventario, validar_campos
+            
             # Validar fecha
-            datetime.strptime(fecha, "%Y-%m-%d")
-        except ValueError:
-            messagebox.showerror("Error", "Fecha inválida. Debe tener formato YYYY-MM-DD.")
-            return
+            try:
+                datetime.strptime(fecha, "%Y-%m-%d")
+            except ValueError:
+                messagebox.showerror("Error", "Fecha inválida. Debe tener formato YYYY-MM-DD.")
+                return
             
-        try:
-            # Registrar la recepción con estado de conformidad
-            # 1. Registrar entrega
+            # Registrar entrega usando el sistema de main.py
             df_entregas = cargar_excel(entregas)
             nuevo_id = 1 if df_entregas.empty else df_entregas['id'].max() + 1
             nueva_entrega = pd.DataFrame([[nuevo_id, proveedor, fecha, numero_pedido, len(self.productos_recibidos)]],
@@ -1362,75 +1899,192 @@ identificando automáticamente los productos faltantes comparando la demanda con
             df_entregas = pd.concat([df_entregas, nueva_entrega], ignore_index=True)
             guardar_excel(df_entregas, entregas)
             
-            # 2. Guardar detalle con estado de conformidad
-            self.guardar_detalle_entrega_con_conformidad(self.productos_recibidos, nuevo_id)
-            
-            # 3. Validar campos
-            productos_basicos = [(p[0], p[1]) for p in self.productos_recibidos]  # Solo producto y cantidad para validación
-            if not validar_campos(productos_basicos):
-                return
-                
-            # 4. Procesar conformidad y mostrar resumen
-            productos_conformes = [p for p in self.productos_recibidos if p[2] == "Conforme"]
-            productos_no_conformes = [p for p in self.productos_recibidos if p[2] == "No conforme"]
-            
-            # 5. Ingresar al inventario solo productos conformes
-            if productos_conformes:
-                productos_validados = [(p[0], p[1]) for p in productos_conformes]
-                ingresar_inventario(productos_validados)
-            
-            # 6. Mostrar resumen detallado
-            resumen = f"✅ Recepción procesada exitosamente. ID de entrega: {nuevo_id}\n\n"
-            resumen += f"📋 RESUMEN:\n"
-            resumen += f"• Total productos recibidos: {len(self.productos_recibidos)}\n"
-            resumen += f"• Productos conformes: {len(productos_conformes)}\n"
-            resumen += f"• Productos no conformes: {len(productos_no_conformes)}\n\n"
-            
-            if productos_conformes:
-                resumen += "✅ PRODUCTOS CONFORMES (ingresados al inventario):\n"
-                for producto, cantidad, _ in productos_conformes:
-                    resumen += f"   • {producto}: {cantidad} unidades\n"
-                resumen += "\n"
-            
-            if productos_no_conformes:
-                resumen += "🚫 PRODUCTOS NO CONFORMES (NO ingresados al inventario):\n"
-                for producto, cantidad, _ in productos_no_conformes:
-                    resumen += f"   • {producto}: {cantidad} unidades\n"
-            
-            messagebox.showinfo("Recepción Completada", resumen)
-            self.limpiar_recepcion()
-            
-        except Exception as e:
-            messagebox.showerror("Error", f"Error al procesar recepción: {e}")
-            
-    def guardar_detalle_entrega_con_conformidad(self, productos, entrega_id):
-        """Guardar detalle de entrega incluyendo estado de conformidad"""
-        try:
+            # Guardar detalle de entrega con estados de conformidad
             df_detalle = cargar_excel(detalle_entregas)
-            
             nuevos_detalles = []
-            for producto, cantidad, estado in productos:
-                nuevo_detalle = [entrega_id, producto, cantidad, estado]
+            
+            for producto in self.productos_recibidos:
+                nuevo_detalle = [nuevo_id, producto['producto'], producto['cantidad'], producto['estado']]
                 nuevos_detalles.append(nuevo_detalle)
             
-            # Crear DataFrame con las columnas apropiadas
+            # Asegurar que las columnas existan
             if df_detalle.empty:
                 columnas = ["entrega_id", "producto", "cantidad", "estado_conformidad"]
             else:
                 columnas = df_detalle.columns.tolist()
-                # Agregar columna de estado si no existe
                 if "estado_conformidad" not in columnas:
                     columnas.append("estado_conformidad")
             
             df_nuevos = pd.DataFrame(nuevos_detalles, columns=columnas)
             df_detalle = pd.concat([df_detalle, df_nuevos], ignore_index=True)
-            
             guardar_excel(df_detalle, detalle_entregas)
             
+            # Separar productos conformes y no conformes
+            productos_conformes = [p for p in self.productos_recibidos if p['estado'] == "Conforme"]
+            productos_no_conformes = [p for p in self.productos_recibidos if p['estado'] == "No conforme"]
+            
+            # Validar y agregar al inventario solo productos conformes
+            if productos_conformes:
+                productos_para_inventario = [(p['producto'], p['cantidad']) for p in productos_conformes]
+                
+                if validar_campos(productos_para_inventario):
+                    ingresar_inventario(productos_para_inventario)
+                else:
+                    messagebox.showwarning("Advertencia", "Algunos productos no pudieron ser validados")
+            
+            # Mostrar resumen
+            resumen = f"✅ Recepción registrada exitosamente!\n\n"
+            resumen += f"🆔 ID de entrega: {nuevo_id}\n"
+            resumen += f"🏢 Proveedor: {proveedor}\n"
+            resumen += f"📅 Fecha: {fecha}\n"
+            resumen += f"📦 Total productos: {len(self.productos_recibidos)}\n"
+            resumen += f"✅ Productos conformes: {len(productos_conformes)}\n"
+            resumen += f"⚠️ Productos no conformes: {len(productos_no_conformes)}\n\n"
+            
+            if productos_conformes:
+                resumen += "✅ PRODUCTOS CONFORMES (agregados al inventario):\n"
+                for p in productos_conformes:
+                    resumen += f"   • {p['producto']}: {p['cantidad']} unidades\n"
+                resumen += "\n"
+            
+            if productos_no_conformes:
+                resumen += "⚠️ PRODUCTOS NO CONFORMES (NO agregados al inventario):\n"
+                for p in productos_no_conformes:
+                    resumen += f"   • {p['producto']}: {p['cantidad']} unidades\n"
+            
+            messagebox.showinfo("Recepción Completada", resumen)
+            
+            # Limpiar formulario
+            self.limpiar_campos_recepcion()
+            
         except Exception as e:
-            print(f"Error al guardar detalle con conformidad: {e}")
-            # Fallback: guardar sin conformidad
-            guardar_detalle_entrega([(p[0], p[1]) for p in productos], entrega_id)
+            messagebox.showerror("Error", f"Error al guardar recepción: {str(e)}")
+
+    def ver_recepciones_hu5(self):
+        """Ver todas las recepciones registradas usando archivos de main.py"""
+        try:
+            from main import cargar_excel, entregas, detalle_entregas
+            
+            # Cargar entregas y detalles
+            df_entregas = cargar_excel(entregas)
+            df_detalles = cargar_excel(detalle_entregas)
+            
+            if df_entregas.empty:
+                messagebox.showinfo("Info", "No hay recepciones registradas")
+                return
+            
+            # Mostrar en nueva ventana
+            ventana_recepciones = self.crear_ventana_secundaria("📋 Recepciones Registradas - HU5", "1200x700")
+            
+            frame_recepciones = ttk.Frame(ventana_recepciones, padding="20")
+            frame_recepciones.pack(fill="both", expand=True)
+            
+            ttk.Label(frame_recepciones, text="Historial de Recepciones de Insumos", 
+                     style='Subtitle.TLabel').pack(pady=10)
+            
+            # Crear notebook para pestañas
+            notebook = ttk.Notebook(frame_recepciones)
+            notebook.pack(fill="both", expand=True, pady=10)
+            
+            # === PESTAÑA 1: ENTREGAS GENERALES ===
+            tab_entregas = ttk.Frame(notebook)
+            notebook.add(tab_entregas, text="📦 Entregas")
+            
+            frame_entregas = ttk.Frame(tab_entregas, padding="10")
+            frame_entregas.pack(fill="both", expand=True)
+            
+            # Treeview para entregas
+            columns_entregas = ('ID', 'Proveedor', 'Fecha', 'Número Pedido', 'Productos')
+            tree_entregas = ttk.Treeview(frame_entregas, columns=columns_entregas, show='headings', height=15)
+            
+            for col in columns_entregas:
+                tree_entregas.heading(col, text=col)
+                tree_entregas.column(col, width=150)
+            
+            # Llenar datos de entregas
+            for _, row in df_entregas.iterrows():
+                tree_entregas.insert('', 'end', values=(
+                    row.get('id', ''),
+                    row.get('proveedor', ''),
+                    row.get('fecha', ''),
+                    row.get('numero_pedido', ''),
+                    row.get('cantidades_entregadas', '')
+                ))
+            
+            scrollbar_entregas = ttk.Scrollbar(frame_entregas, orient="vertical", command=tree_entregas.yview)
+            tree_entregas.configure(yscrollcommand=scrollbar_entregas.set)
+            
+            tree_entregas.pack(side="left", fill="both", expand=True)
+            scrollbar_entregas.pack(side="right", fill="y")
+            
+            # === PESTAÑA 2: DETALLES DE PRODUCTOS ===
+            tab_detalles = ttk.Frame(notebook)
+            notebook.add(tab_detalles, text="📋 Detalles de Productos")
+            
+            frame_detalles = ttk.Frame(tab_detalles, padding="10")
+            frame_detalles.pack(fill="both", expand=True)
+            
+            if not df_detalles.empty:
+                # Treeview para detalles
+                columns_detalles = ['ID Entrega', 'Producto', 'Cantidad']
+                if 'estado_conformidad' in df_detalles.columns:
+                    columns_detalles.append('Estado')
+                
+                tree_detalles = ttk.Treeview(frame_detalles, columns=columns_detalles, show='headings', height=15)
+                
+                for col in columns_detalles:
+                    tree_detalles.heading(col, text=col)
+                    tree_detalles.column(col, width=150)
+                
+                # Llenar datos de detalles
+                for _, row in df_detalles.iterrows():
+                    valores = [
+                        row.get('entrega_id', ''),
+                        row.get('producto', ''),
+                        row.get('cantidad', '')
+                    ]
+                    if 'estado_conformidad' in df_detalles.columns:
+                        valores.append(row.get('estado_conformidad', 'N/A'))
+                    
+                    tree_detalles.insert('', 'end', values=valores)
+                
+                scrollbar_detalles = ttk.Scrollbar(frame_detalles, orient="vertical", command=tree_detalles.yview)
+                tree_detalles.configure(yscrollcommand=scrollbar_detalles.set)
+                
+                tree_detalles.pack(side="left", fill="both", expand=True)
+                scrollbar_detalles.pack(side="right", fill="y")
+            else:
+                ttk.Label(frame_detalles, text="No hay detalles de productos disponibles").pack(pady=50)
+            
+            # Botones de acción
+            botones_frame = ttk.Frame(frame_recepciones)
+            botones_frame.pack(fill="x", pady=10)
+            
+            ttk.Button(botones_frame, text="🔄 Actualizar", 
+                      command=lambda: [ventana_recepciones.destroy(), self.ver_recepciones_hu5()],
+                      style='Primary.TButton').pack(side="left", padx=10)
+            
+            ttk.Button(botones_frame, text="❌ Cerrar", 
+                      command=ventana_recepciones.destroy,
+                      style='Danger.TButton').pack(side="right", padx=10)
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al cargar recepciones: {str(e)}")
+
+    def limpiar_campos_recepcion(self):
+        """Limpiar todos los campos del formulario de recepción"""
+        self.entry_proveedor.delete(0, tk.END)
+        self.entry_fecha_recepcion.delete(0, tk.END)
+        self.entry_numero_pedido.delete(0, tk.END)
+        self.entry_producto_nuevo.delete(0, tk.END)
+        self.entry_cantidad_nueva.delete(0, tk.END)
+        self.combo_estado_nuevo.set("Conforme")
+        self.combo_estado_modificar.set("")
+        
+        # Limpiar tree y lista
+        for item in self.tree_productos.get_children():
+            self.tree_productos.delete(item)
+        self.productos_recibidos = []
             
     def menu_reportes_recepcion(self):
         """Menú para reportes de recepción"""

@@ -88,86 +88,38 @@ def main():
     debug_print("Iniciando Sistema Finca Directa SAS...")
     
     try:
-        # Primer intento: Estructura modular (igual que debug_app.py)
-        debug_print("Intentando importar estructura modular...")
-        sys.path.append(os.path.join(os.path.dirname(__file__), 'gui'))
-        sys.path.append(os.path.join(os.path.dirname(__file__), 'core'))
-        sys.path.append(os.path.join(os.path.dirname(__file__), 'utils'))
-        
-        from gui.finca_directa_gui import SistemaFincaDirectaGUI
-        debug_print("✅ Importación modular exitosa")
+        # Importar directamente fincaDirectaGUI.py
+        debug_print("Importando aplicación principal...")
+        from fincaDirectaGUI import SistemaFincaDirectaGUI
+        debug_print("✅ Importación exitosa")
         
         app = SistemaFincaDirectaGUI()
         debug_print("✅ Instancia creada correctamente")
         
         app.inicializar_aplicacion()
-        debug_print("✅ Aplicación inicializada")
+        debug_print("✅ Aplicación inicializada correctamente")
         
     except Exception as e:
-        debug_print(f"❌ Error en estructura modular: {e}")
+        debug_print(f"❌ Error al iniciar aplicación: {e}")
+        
+        # Mostrar mensaje de error
+        print("\n❌ ERROR AL INICIAR:")
+        print(f"   Error: {e}")
+        print("\n💡 Sugerencias:")
+        print("   1. Verifica que fincaDirectaGUI.py esté en el directorio")
+        print("   2. Verifica que main.py esté disponible")
+        print("   3. Ejecuta: python fincaDirectaGUI.py directamente")
         
         try:
-            # Segundo intento: fincaDirectaGUI.py directo
-            debug_print("Intentando importar fincaDirectaGUI.py...")
-            from fincaDirectaGUI import SistemaFincaDirectaGUI
-            debug_print("✅ Importación de fincaDirectaGUI exitosa")
-            
-            app = SistemaFincaDirectaGUI()
-            debug_print("✅ Instancia creada correctamente")
-            
-            app.inicializar_aplicacion()
-            debug_print("✅ Aplicación inicializada")
-            
-        except Exception as e2:
-            debug_print(f"❌ Error en fincaDirectaGUI: {e2}")
-            
-            try:
-                # Tercer intento: intento_moderno.py (si existe)
-                debug_print("Intentando importar intento_moderno.py...")
-                from intento_moderno import SistemaFincaDirectaGUI
-                debug_print("✅ Importación de intento_moderno exitosa")
-                
-                app = SistemaFincaDirectaGUI()
-                debug_print("✅ Instancia creada correctamente")
-                
-                app.inicializar_aplicacion()
-                debug_print("✅ Aplicación inicializada")
-                
-            except Exception as e3:
-                debug_print(f"❌ Error en intento_moderno: {e3}")
-                
-                # Último intento: intento.py básico (si existe)
-                debug_print("Intentando ejecutar intento.py básico...")
-                try:
-                    import intento
-                    debug_print("✅ intento.py ejecutado")
-                except Exception as e4:
-                    debug_print(f"❌ Error en intento.py: {e4}")
-                    
-                    # Mostrar mensaje de error final
-                    print("\n❌ ERROR CRÍTICO:")
-                    print(f"   Modular: {e}")
-                    print(f"   FincaDirectaGUI: {e2}")
-                    print(f"   IntentoModerno: {e3}")
-                    print(f"   Intento básico: {e4}")
-                    print("\n💡 Sugerencias:")
-                    print("   1. Verifica que fincaDirectaGUI.py esté en el directorio")
-                    print("   2. Verifica que main.py esté disponible")
-                    print("   3. Ejecuta: python fincaDirectaGUI.py directamente")
-                    
-                    try:
-                        messagebox.showerror("Error Crítico", 
-                                           f"No se pudo ejecutar ninguna versión de la aplicación.\n\n"
-                                           f"Errores encontrados:\n"
-                                           f"• Modular: {str(e)[:50]}...\n"
-                                           f"• FincaDirectaGUI: {str(e2)[:50]}...\n"
-                                           f"• IntentoModerno: {str(e3)[:50]}...\n"
-                                           f"• Intento básico: {str(e4)[:50]}...")
-                    except:
-                        pass
-                    
-                    input("Presiona Enter para salir...")
-                    sys.exit(1)
+            messagebox.showerror("Error Crítico", 
+                               f"No se pudo ejecutar la aplicación.\n\n"
+                               f"Error: {str(e)}\n\n"
+                               f"Verifica que todos los archivos estén presentes.")
+        except:
+            pass
+        
+        input("Presiona Enter para salir...")
+        sys.exit(1)
 
 if __name__ == "__main__":
     debug_print("=== INICIO DE APP ===")
