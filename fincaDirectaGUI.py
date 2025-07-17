@@ -862,102 +862,491 @@ class SistemaFincaDirectaGUI:
             messagebox.showwarning("Advertencia", "No hay datos filtrados para exportar")
             
     def menu_inventario(self):
-        """Menú para consultar inventario"""
-        ventana = self.crear_ventana_secundaria("📦 Consultar Inventario", "700x500")
+        """Menú avanzado para gestionar inventario"""
+        ventana = self.crear_ventana_secundaria("📦 Gestión de Inventario", "1200x800")
         
         main_frame = ttk.Frame(ventana, padding="20")
         main_frame.pack(fill="both", expand=True)
         
-        ttk.Label(main_frame, text="Consultar Inventario", 
+        ttk.Label(main_frame, text="Gestión de Inventario", 
                  style='Subtitle.TLabel').pack(pady=10)
         
-        # Botones de acción
-        btn_frame = ttk.Frame(main_frame)
-        btn_frame.pack(fill="x", pady=10)
+        # Frame superior con botones de acción
+        botones_frame = ttk.Frame(main_frame)
+        botones_frame.pack(fill="x", pady=15)
         
-        ttk.Button(btn_frame, text="📋 Mostrar Inventario Completo", 
-                  command=self.mostrar_inventario_completo).pack(side="left", padx=5)
-        ttk.Button(btn_frame, text="🔍 Buscar Insumo", 
-                  command=self.buscar_insumo_gui).pack(side="left", padx=5)
-        ttk.Button(btn_frame, text="👁️ Ver Detalle por ID", 
-                  command=self.ver_detalle_insumo_gui).pack(side="left", padx=5)
+        ttk.Button(botones_frame, text="➕ Agregar Producto", 
+                  command=self.agregar_producto_inventario,
+                  style='Success.TButton').pack(side="left", padx=10)
         
-        # Área de resultados con texto oscuro
-        self.text_inventario = tk.Text(main_frame, height=20, width=80,
-                                      bg='white', fg='#2C3E50', insertbackground='#2C3E50')
-        scroll_inv = ttk.Scrollbar(main_frame, orient="vertical", command=self.text_inventario.yview)
-        self.text_inventario.configure(yscrollcommand=scroll_inv.set)
+        ttk.Button(botones_frame, text="✏️ Editar Producto", 
+                  command=self.editar_producto_inventario,
+                  style='Primary.TButton').pack(side="left", padx=10)
         
-        self.text_inventario.pack(side="left", fill="both", expand=True)
-        scroll_inv.pack(side="right", fill="y")
+        ttk.Button(botones_frame, text="�️ Eliminar Producto", 
+                  command=self.eliminar_producto_inventario,
+                  style='Danger.TButton').pack(side="left", padx=10)
         
-    def mostrar_inventario_completo(self):
-        """Mostrar el inventario completo"""
-        df_inventario = cargar_excel(inventario)
-        if df_inventario.empty:
-            self.text_inventario.delete(1.0, tk.END)
-            self.text_inventario.insert(tk.END, "❌ No hay datos de inventario disponibles.")
-            return
-            
-        self.text_inventario.delete(1.0, tk.END)
-        self.text_inventario.insert(tk.END, "📦 INVENTARIO COMPLETO:\n\n")
+        ttk.Button(botones_frame, text="� Actualizar Vista", 
+                  command=self.actualizar_vista_inventario,
+                  style='Secondary.TButton').pack(side="left", padx=10)
         
-        # Mostrar solo las primeras 18 filas (0-17)
-        df_mostrar = df_inventario.loc[0:17, ["producto", "cantidad"]] if len(df_inventario) > 17 else df_inventario[["producto", "cantidad"]]
+        ttk.Button(botones_frame, text="🔍 Buscar", 
+                  command=self.buscar_producto_inventario,
+                  style='Info.TButton').pack(side="left", padx=10)
         
-        for idx, row in df_mostrar.iterrows():
-            self.text_inventario.insert(tk.END, f"{idx:2d} | {row['producto']:30s} | {row['cantidad']}\n")
-            
-    def buscar_insumo_gui(self):
-        """Buscar insumo por nombre"""
-        nombre = tk.simpledialog.askstring("Buscar Insumo", 
-                                          "Ingrese el nombre del insumo a buscar:")
-        if not nombre:
-            return
-            
-        df_inventario = cargar_excel(inventario)
-        df_inventario["producto_norm"] = df_inventario["producto"].astype(str).str.strip().str.lower()
-        nombre = nombre.lower()
-        resultado = df_inventario[df_inventario["producto_norm"].str.contains(nombre)]
+        # Frame para el Treeview con inventario
+        inventario_frame = ttk.LabelFrame(main_frame, text="📋 Lista de Productos en Inventario", padding="15")
+        inventario_frame.pack(fill="both", expand=True, pady=10)
         
-        self.text_inventario.delete(1.0, tk.END)
-        if resultado.empty:
-            self.text_inventario.insert(tk.END, "❌ No se encontraron insumos con ese nombre.")
-        else:
-            self.text_inventario.insert(tk.END, f"🔍 Resultados para '{nombre}':\n\n")
-            for _, row in resultado.iterrows():
-                self.text_inventario.insert(tk.END, 
-                    f"Producto: {row['producto']}\n"
-                    f"Cantidad: {row['cantidad']}\n"
-                    f"Última actualización: {row.get('ultima_actualizacion', 'N/A')}\n\n")
-                    
-    def ver_detalle_insumo_gui(self):
-        """Ver detalle de insumo por ID"""
+        # Crear Treeview para mostrar inventario
+        columns = ('ID', 'Producto', 'Cantidad', 'Última Actualización')
+        self.tree_inventario = ttk.Treeview(inventario_frame, columns=columns, show='headings', height=20)
+        
+        # Configurar columnas
+        self.tree_inventario.heading('ID', text='ID')
+        self.tree_inventario.heading('Producto', text='Producto')
+        self.tree_inventario.heading('Cantidad', text='Cantidad')
+        self.tree_inventario.heading('Última Actualización', text='Última Actualización')
+        
+        self.tree_inventario.column('ID', width=80, anchor='center')
+        self.tree_inventario.column('Producto', width=300)
+        self.tree_inventario.column('Cantidad', width=120, anchor='center')
+        self.tree_inventario.column('Última Actualización', width=180, anchor='center')
+        
+        # Scrollbars para el Treeview
+        scrollbar_v_inv = ttk.Scrollbar(inventario_frame, orient="vertical", command=self.tree_inventario.yview)
+        scrollbar_h_inv = ttk.Scrollbar(inventario_frame, orient="horizontal", command=self.tree_inventario.xview)
+        self.tree_inventario.configure(yscrollcommand=scrollbar_v_inv.set, xscrollcommand=scrollbar_h_inv.set)
+        
+        # Empaquetar Treeview y scrollbars
+        self.tree_inventario.grid(row=0, column=0, sticky="nsew")
+        scrollbar_v_inv.grid(row=0, column=1, sticky="ns")
+        scrollbar_h_inv.grid(row=1, column=0, sticky="ew")
+        
+        # Configurar grid
+        inventario_frame.grid_rowconfigure(0, weight=1)
+        inventario_frame.grid_columnconfigure(0, weight=1)
+        
+        # Bind para doble clic
+        self.tree_inventario.bind('<Double-1>', self.ver_detalle_producto_inventario)
+        
+        # Cargar datos iniciales
+        self.cargar_inventario_en_tree()
+
+    def cargar_inventario_en_tree(self):
+        """Cargar datos del inventario en el Treeview"""
         try:
-            idx = tk.simpledialog.askinteger("Ver Detalle", 
-                                           "Ingrese el ID del insumo (0-17):",
-                                           minvalue=0, maxvalue=17)
-            if idx is None:
-                return
-                
+            # Limpiar tree actual
+            for item in self.tree_inventario.get_children():
+                self.tree_inventario.delete(item)
+            
+            # Cargar datos del inventario
+            from main import cargar_excel, inventario
             df_inventario = cargar_excel(inventario)
-            if 0 <= idx <= 17 and idx < len(df_inventario):
-                row = df_inventario.iloc[idx]
-                detalle = (
-                    f"📋 DETALLE DEL INSUMO:\n\n"
-                    f"ID: {idx}\n"
-                    f"Producto: {row.get('producto', 'N/A')}\n"
-                    f"Cantidad: {row.get('cantidad', 'N/A')}\n"
-                    f"Última actualización: {row.get('ultima_actualizacion', 'N/A')}\n"
-                )
-                
-                self.text_inventario.delete(1.0, tk.END)
-                self.text_inventario.insert(tk.END, detalle)
-            else:
-                messagebox.showerror("Error", "❌ ID inválido o fuera de rango.")
+            
+            if df_inventario.empty:
+                messagebox.showwarning("Sin Datos", "📦 No hay productos en el inventario")
+                return
+            
+            # Llenar el tree con datos
+            for _, row in df_inventario.iterrows():
+                self.tree_inventario.insert('', 'end', values=(
+                    row.get('id', 'N/A'),
+                    row.get('producto', 'N/A'),
+                    row.get('cantidad', 0),
+                    row.get('ultima_actualizacion', 'N/A')
+                ))
+            
+            print(f"✅ Inventario cargado: {len(df_inventario)} productos")
                 
         except Exception as e:
-            messagebox.showerror("Error", f"❌ Error: {e}")
+            messagebox.showerror("Error", f"Error al cargar inventario: {str(e)}")
+
+    def agregar_producto_inventario(self):
+        """Agregar un nuevo producto al inventario"""
+        try:
+            # Crear ventana de diálogo
+            dialog = self.crear_ventana_secundaria("➕ Agregar Nuevo Producto", "450x350")
+            
+            form_frame = ttk.Frame(dialog, padding="30")
+            form_frame.pack(fill="both", expand=True)
+            
+            ttk.Label(form_frame, text="➕ Agregar Nuevo Producto al Inventario", 
+                     style='Subtitle.TLabel').pack(pady=(0, 20))
+            
+            # Campo nombre del producto
+            ttk.Label(form_frame, text="📦 Nombre del Producto:").pack(anchor="w", pady=(10, 5))
+            entry_nombre = ttk.Entry(form_frame, width=40, font=self.font_normal)
+            entry_nombre.pack(fill="x", pady=(0, 15))
+            
+            # Campo cantidad
+            ttk.Label(form_frame, text="📊 Cantidad:").pack(anchor="w", pady=(0, 5))
+            entry_cantidad = ttk.Entry(form_frame, width=40, font=self.font_normal)
+            entry_cantidad.pack(fill="x", pady=(0, 20))
+            
+            def procesar_agregar():
+                nombre = entry_nombre.get().strip()
+                cantidad_str = entry_cantidad.get().strip()
+                
+                if not nombre:
+                    messagebox.showerror("Error", "📦 El nombre del producto es obligatorio")
+                    return
+                
+                try:
+                    cantidad = int(cantidad_str)
+                    if cantidad < 0:
+                        messagebox.showerror("Error", "📊 La cantidad debe ser un número positivo")
+                        return
+                except ValueError:
+                    messagebox.showerror("Error", "📊 La cantidad debe ser un número válido")
+                    return
+                
+                # Cargar inventario actual
+                from main import cargar_excel, inventario
+                import pandas as pd
+                from datetime import datetime
+                
+                df_inventario = cargar_excel(inventario)
+                
+                # Verificar si el producto ya existe
+                if not df_inventario.empty:
+                    producto_existente = df_inventario[df_inventario['producto'].str.lower() == nombre.lower()]
+                    if not producto_existente.empty:
+                        messagebox.showerror("Error", 
+                            f"❌ El producto '{nombre}' ya existe en el inventario.\n"
+                            f"Use la función 'Editar' para modificar la cantidad.")
+                        return
+                
+                # Generar nuevo ID
+                if df_inventario.empty:
+                    nuevo_id = 0
+                else:
+                    nuevo_id = df_inventario['id'].max() + 1
+                
+                # Crear nuevo registro
+                nuevo_producto = pd.DataFrame({
+                    'id': [nuevo_id],
+                    'producto': [nombre],
+                    'cantidad': [cantidad],
+                    'ultima_actualizacion': [datetime.now().strftime('%Y-%m-%d')]
+                })
+                
+                # Agregar al DataFrame existente
+                if df_inventario.empty:
+                    df_final = nuevo_producto
+                else:
+                    df_final = pd.concat([df_inventario, nuevo_producto], ignore_index=True)
+                
+                # Guardar archivo
+                df_final.to_excel(inventario, index=False)
+                
+                messagebox.showinfo("Éxito", 
+                    f"✅ Producto agregado exitosamente!\n\n"
+                    f"🆔 ID: {nuevo_id}\n"
+                    f"📦 Producto: {nombre}\n"
+                    f"📊 Cantidad: {cantidad}")
+                
+                # Actualizar vista y cerrar diálogo
+                self.recargar_inventario_silencioso()
+                dialog.destroy()
+            
+            # Botones
+            botones_frame = ttk.Frame(form_frame)
+            botones_frame.pack(fill="x", pady=20)
+            
+            ttk.Button(botones_frame, text="✅ Agregar", 
+                      command=procesar_agregar,
+                      style='Success.TButton').pack(side="left", padx=10)
+            
+            ttk.Button(botones_frame, text="❌ Cancelar", 
+                      command=dialog.destroy,
+                      style='Danger.TButton').pack(side="right", padx=10)
+            
+            # Focus en el campo nombre
+            entry_nombre.focus()
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al agregar producto: {str(e)}")
+
+    def editar_producto_inventario(self):
+        """Editar un producto del inventario"""
+        try:
+            # Verificar selección
+            selection = self.tree_inventario.selection()
+            if not selection:
+                messagebox.showwarning("Selección Requerida", 
+                    "🔍 Seleccione un producto del inventario para editar")
+                return
+            
+            # Obtener datos del producto seleccionado
+            item = self.tree_inventario.item(selection[0])
+            producto_id = item['values'][0]
+            nombre_actual = item['values'][1]
+            cantidad_actual = item['values'][2]
+            
+            # Crear ventana de diálogo
+            dialog = self.crear_ventana_secundaria("✏️ Editar Producto", "450x350")
+            
+            form_frame = ttk.Frame(dialog, padding="30")
+            form_frame.pack(fill="both", expand=True)
+            
+            ttk.Label(form_frame, text="✏️ Editar Producto del Inventario", 
+                     style='Subtitle.TLabel').pack(pady=(0, 20))
+            
+            # Mostrar ID (solo lectura)
+            ttk.Label(form_frame, text=f"🆔 ID del Producto: {producto_id}",
+                     style='Custom.TLabel').pack(anchor="w", pady=(0, 15))
+            
+            # Campo nombre del producto (editable)
+            ttk.Label(form_frame, text="📦 Nombre del Producto:").pack(anchor="w", pady=(0, 5))
+            entry_nombre = ttk.Entry(form_frame, width=40, font=self.font_normal)
+            entry_nombre.pack(fill="x", pady=(0, 15))
+            entry_nombre.insert(0, nombre_actual)
+            
+            # Campo cantidad (editable)
+            ttk.Label(form_frame, text="📊 Cantidad:").pack(anchor="w", pady=(0, 5))
+            entry_cantidad = ttk.Entry(form_frame, width=40, font=self.font_normal)
+            entry_cantidad.pack(fill="x", pady=(0, 20))
+            entry_cantidad.insert(0, str(cantidad_actual))
+            
+            def procesar_edicion():
+                nuevo_nombre = entry_nombre.get().strip()
+                nueva_cantidad_str = entry_cantidad.get().strip()
+                
+                if not nuevo_nombre:
+                    messagebox.showerror("Error", "📦 El nombre del producto es obligatorio")
+                    return
+                
+                try:
+                    nueva_cantidad = int(nueva_cantidad_str)
+                    if nueva_cantidad < 0:
+                        messagebox.showerror("Error", "📊 La cantidad debe ser un número positivo")
+                        return
+                except ValueError:
+                    messagebox.showerror("Error", "📊 La cantidad debe ser un número válido")
+                    return
+                
+                # Cargar inventario actual
+                from main import cargar_excel, inventario
+                import pandas as pd
+                from datetime import datetime
+                
+                df_inventario = cargar_excel(inventario)
+                
+                if df_inventario.empty:
+                    messagebox.showerror("Error", "❌ No se pudo cargar el inventario")
+                    return
+                
+                # Verificar que no haya otro producto con el mismo nombre (excepto el actual)
+                otros_productos = df_inventario[(df_inventario['id'] != producto_id) & 
+                                              (df_inventario['producto'].str.lower() == nuevo_nombre.lower())]
+                if not otros_productos.empty:
+                    messagebox.showerror("Error", 
+                        f"❌ Ya existe otro producto con el nombre '{nuevo_nombre}'")
+                    return
+                
+                # Actualizar el producto
+                df_inventario.loc[df_inventario['id'] == producto_id, 'producto'] = nuevo_nombre
+                df_inventario.loc[df_inventario['id'] == producto_id, 'cantidad'] = nueva_cantidad
+                df_inventario.loc[df_inventario['id'] == producto_id, 'ultima_actualizacion'] = datetime.now().strftime('%Y-%m-%d')
+                
+                # Guardar archivo
+                df_inventario.to_excel(inventario, index=False)
+                
+                messagebox.showinfo("Éxito", 
+                    f"✅ Producto actualizado exitosamente!\n\n"
+                    f"🆔 ID: {producto_id}\n"
+                    f"📦 Nuevo Nombre: {nuevo_nombre}\n"
+                    f"📊 Nueva Cantidad: {nueva_cantidad}")
+                
+                # Actualizar vista y cerrar diálogo
+                self.recargar_inventario_silencioso()
+                dialog.destroy()
+            
+            # Botones
+            botones_frame = ttk.Frame(form_frame)
+            botones_frame.pack(fill="x", pady=20)
+            
+            ttk.Button(botones_frame, text="✅ Guardar Cambios", 
+                      command=procesar_edicion,
+                      style='Success.TButton').pack(side="left", padx=10)
+            
+            ttk.Button(botones_frame, text="❌ Cancelar", 
+                      command=dialog.destroy,
+                      style='Danger.TButton').pack(side="right", padx=10)
+            
+            # Focus en el campo nombre
+            entry_nombre.focus()
+            entry_nombre.select_range(0, 'end')
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al editar producto: {str(e)}")
+
+    def eliminar_producto_inventario(self):
+        """Eliminar un producto del inventario"""
+        try:
+            # Verificar selección
+            selection = self.tree_inventario.selection()
+            if not selection:
+                messagebox.showwarning("Selección Requerida", 
+                    "🔍 Seleccione un producto del inventario para eliminar")
+                return
+            
+            # Obtener datos del producto seleccionado
+            item = self.tree_inventario.item(selection[0])
+            producto_id = item['values'][0]
+            nombre_producto = item['values'][1]
+            cantidad_producto = item['values'][2]
+            
+            # Confirmar eliminación
+            respuesta = messagebox.askyesno("Confirmar Eliminación", 
+                f"�️ ¿Está seguro de eliminar este producto?\n\n"
+                f"🆔 ID: {producto_id}\n"
+                f"📦 Producto: {nombre_producto}\n"
+                f"📊 Cantidad: {cantidad_producto}\n\n"
+                f"⚠️ Esta acción no se puede deshacer.")
+            
+            if not respuesta:
+                return
+            
+            # Cargar inventario actual
+            from main import cargar_excel, inventario
+            import pandas as pd
+            
+            df_inventario = cargar_excel(inventario)
+            
+            if df_inventario.empty:
+                messagebox.showerror("Error", "❌ No se pudo cargar el inventario")
+                return
+            
+            # Verificar que el producto existe
+            producto_existente = df_inventario[df_inventario['id'] == producto_id]
+            if producto_existente.empty:
+                messagebox.showerror("Error", "❌ El producto no existe en el inventario")
+                return
+            
+            # Eliminar el producto
+            df_inventario = df_inventario[df_inventario['id'] != producto_id]
+            
+            # Guardar archivo actualizado
+            df_inventario.to_excel(inventario, index=False)
+            
+            messagebox.showinfo("Eliminación Exitosa", 
+                f"✅ Producto eliminado exitosamente!\n\n"
+                f"🗑️ Producto eliminado: {nombre_producto}\n"
+                f"📊 Cantidad que tenía: {cantidad_producto}")
+            
+            # Actualizar vista
+            self.recargar_inventario_silencioso()
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al eliminar producto: {str(e)}")
+
+    def actualizar_vista_inventario(self):
+        """Actualizar la vista del inventario"""
+        self.cargar_inventario_en_tree()
+
+    def recargar_inventario_silencioso(self):
+        """Recargar inventario sin mostrar mensajes de confirmación"""
+        try:
+            # Limpiar tree actual
+            for item in self.tree_inventario.get_children():
+                self.tree_inventario.delete(item)
+            
+            # Cargar datos del inventario
+            from main import cargar_excel, inventario
+            df_inventario = cargar_excel(inventario)
+            
+            if not df_inventario.empty:
+                # Llenar el tree con datos
+                for _, row in df_inventario.iterrows():
+                    self.tree_inventario.insert('', 'end', values=(
+                        row.get('id', 'N/A'),
+                        row.get('producto', 'N/A'),
+                        row.get('cantidad', 0),
+                        row.get('ultima_actualizacion', 'N/A')
+                    ))
+                
+        except Exception as e:
+            print(f"Error al recargar inventario: {str(e)}")
+
+    def buscar_producto_inventario(self):
+        """Buscar productos en el inventario"""
+        try:
+            termino = tk.simpledialog.askstring("🔍 Buscar Producto", 
+                "Ingrese el nombre del producto a buscar:")
+            
+            if not termino:
+                return
+            
+            termino = termino.lower().strip()
+            
+            # Limpiar tree actual
+            for item in self.tree_inventario.get_children():
+                self.tree_inventario.delete(item)
+            
+            # Cargar y filtrar datos
+            from main import cargar_excel, inventario
+            df_inventario = cargar_excel(inventario)
+            
+            if df_inventario.empty:
+                messagebox.showinfo("Sin Datos", "📦 No hay productos en el inventario")
+                return
+            
+            # Filtrar productos que contengan el término de búsqueda
+            df_filtrado = df_inventario[df_inventario['producto'].str.lower().str.contains(termino)]
+            
+            if df_filtrado.empty:
+                messagebox.showinfo("Sin Resultados", 
+                    f"� No se encontraron productos que contengan '{termino}'")
+                # Recargar todos los productos
+                self.recargar_inventario_silencioso()
+                return
+            
+            # Mostrar productos filtrados
+            for _, row in df_filtrado.iterrows():
+                self.tree_inventario.insert('', 'end', values=(
+                    row.get('id', 'N/A'),
+                    row.get('producto', 'N/A'),
+                    row.get('cantidad', 0),
+                    row.get('ultima_actualizacion', 'N/A')
+                ))
+            
+            messagebox.showinfo("Búsqueda Completada", 
+                f"🔍 Se encontraron {len(df_filtrado)} productos que contienen '{termino}'")
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al buscar productos: {str(e)}")
+
+    def ver_detalle_producto_inventario(self, event):
+        """Ver detalle de un producto (doble clic)"""
+        try:
+            selection = self.tree_inventario.selection()
+            if not selection:
+                return
+            
+            item = self.tree_inventario.item(selection[0])
+            producto_id = item['values'][0]
+            nombre_producto = item['values'][1]
+            cantidad_producto = item['values'][2]
+            fecha_actualizacion = item['values'][3]
+            
+            # Mostrar información detallada
+            detalle = f"""📦 DETALLE DEL PRODUCTO
+
+🆔 ID: {producto_id}
+📦 Nombre: {nombre_producto}
+📊 Cantidad Disponible: {cantidad_producto} unidades
+📅 Última Actualización: {fecha_actualizacion}
+
+💡 Para editar este producto, selecciónelo y haga clic en 'Editar Producto'
+🗑️ Para eliminarlo, selecciónelo y haga clic en 'Eliminar Producto'"""
+            
+            messagebox.showinfo("Detalle del Producto", detalle)
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al mostrar detalle: {str(e)}")
             
     def menu_verificar_disponibilidad(self):
         """Menú para verificar disponibilidad de insumos"""
@@ -1406,257 +1795,488 @@ identificar productos faltantes y generar solicitudes de compra."""
             self.text_hu8.insert(tk.END, f"❌ Error al generar solicitud: {str(e)}\n")
 
     def menu_registro_pedidos_hu3(self):
-        """HU3 - Registro de Pedidos de Insumos"""
-        ventana = self.crear_ventana_secundaria("📋 Registro de Pedidos - HU3", "800x600")
+        """HU3 - Solicitud de Compra: Generar solicitudes de compra de insumos (igual flujo que main.py)"""
+        # Obtener insumos faltantes desde el inicio
+        try:
+            from main import obtener_insumos_faltantes
+            self.solicitud_actual = obtener_insumos_faltantes()
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al obtener insumos faltantes: {str(e)}")
+            return
+            
+        if self.solicitud_actual.empty:
+            messagebox.showinfo("Sin Faltantes", "✅ No hay productos faltantes. Toda la demanda está cubierta.")
+            return
+
+        # Crear ventana principal del menú
+        ventana = self.crear_ventana_secundaria("📋 Solicitud de Compra de Insumos - HU3", "1000x700")
         
         main_frame = ttk.Frame(ventana, padding="20")
         main_frame.pack(fill="both", expand=True)
         
-        ttk.Label(main_frame, text="Registro de Pedidos de Insumos", 
+        ttk.Label(main_frame, text="Solicitud de Compra de Insumos", 
                  style='Subtitle.TLabel').pack(pady=10)
         
         # Frame de información
         info_frame = ttk.LabelFrame(main_frame, text="Información del Proceso", padding="15")
         info_frame.pack(fill="x", pady=10)
         
-        info_text = """HU3 - Captura de requerimientos de insumos para las granjas.
-Esta función permite registrar nuevos pedidos que luego serán analizados para generar demanda."""
+        info_text = """HU3 - Generar solicitudes de compra de insumos.
+Este módulo analiza los productos faltantes y permite gestionar la solicitud de compra."""
         ttk.Label(info_frame, text=info_text, justify="left").pack(anchor="w")
         
-        # Frame para captura de datos
-        datos_frame = ttk.LabelFrame(main_frame, text="Datos del Pedido", padding="15")
-        datos_frame.pack(fill="x", pady=10)
+        # Frame con los botones del menú (igual a main.py)
+        menu_frame = ttk.LabelFrame(main_frame, text="Opciones del Menú", padding="15")
+        menu_frame.pack(fill="x", pady=10)
         
-        # Campos de entrada
-        ttk.Label(datos_frame, text="Granja:").grid(row=0, column=0, sticky="w", padx=5, pady=5)
-        self.entry_granja_hu3 = ttk.Entry(datos_frame, width=30)
-        self.entry_granja_hu3.grid(row=0, column=1, padx=5, pady=5)
+        # Configurar grid para 3 columnas, 2 filas
+        for i in range(3):
+            menu_frame.grid_columnconfigure(i, weight=1)
         
-        ttk.Label(datos_frame, text="Fecha (YYYY-MM-DD):").grid(row=1, column=0, sticky="w", padx=5, pady=5)
-        self.entry_fecha_hu3 = ttk.Entry(datos_frame, width=30)
-        self.entry_fecha_hu3.grid(row=1, column=1, padx=5, pady=5)
+        # Botones siguiendo el flujo exacto de main.py
+        ttk.Button(menu_frame, text="1. � Mostrar Sugerencia de Solicitud", 
+                  command=self.mostrar_sugerencia_solicitud_hu3,
+                  style='Primary.TButton').grid(row=0, column=0, padx=5, pady=5, sticky="ew")
         
-        ttk.Label(datos_frame, text="Producto:").grid(row=2, column=0, sticky="w", padx=5, pady=5)
-        self.entry_producto_hu3 = ttk.Entry(datos_frame, width=30)
-        self.entry_producto_hu3.grid(row=2, column=1, padx=5, pady=5)
+        ttk.Button(menu_frame, text="2. ✏️ Editar Solicitud", 
+                  command=self.editar_solicitud_hu3,
+                  style='Secondary.TButton').grid(row=0, column=1, padx=5, pady=5, sticky="ew")
         
-        ttk.Label(datos_frame, text="Cantidad:").grid(row=3, column=0, sticky="w", padx=5, pady=5)
-        self.entry_cantidad_hu3 = ttk.Entry(datos_frame, width=30)
-        self.entry_cantidad_hu3.grid(row=3, column=1, padx=5, pady=5)
+        ttk.Button(menu_frame, text="3. ✅ Validar Información", 
+                  command=self.validar_solicitud_hu3,
+                  style='Info.TButton').grid(row=0, column=2, padx=5, pady=5, sticky="ew")
         
-        # Botones
-        botones_frame = ttk.Frame(main_frame)
-        botones_frame.pack(fill="x", pady=20)
+        ttk.Button(menu_frame, text="4. 💾 Guardar Solicitud", 
+                  command=self.guardar_solicitud_hu3,
+                  style='Success.TButton').grid(row=1, column=0, padx=5, pady=5, sticky="ew")
         
-        ttk.Button(botones_frame, text="💾 Guardar Pedido", 
-                  command=self.guardar_pedido_hu3,
-                  style='Success.TButton').pack(side="left", padx=10)
-        ttk.Button(botones_frame, text="📊 Ver Pedidos", 
-                  command=self.ver_pedidos_hu3).pack(side="left", padx=10)
-        ttk.Button(botones_frame, text="🧹 Limpiar", 
-                  command=self.limpiar_campos_hu3).pack(side="left", padx=10)
+        ttk.Button(menu_frame, text="5. 📧 Enviar Solicitud", 
+                  command=self.enviar_solicitud_hu3,
+                  style='Warning.TButton').grid(row=1, column=1, padx=5, pady=5, sticky="ew")
         
-        # Área de resultados
-        resultados_frame = ttk.LabelFrame(main_frame, text="Últimos Pedidos", padding="15")
-        resultados_frame.pack(fill="both", expand=True, pady=10)
+        ttk.Button(menu_frame, text="6. 🏠 Volver", 
+                  command=ventana.destroy,
+                  style='Danger.TButton').grid(row=1, column=2, padx=5, pady=5, sticky="ew")
         
-        self.text_pedidos_hu3 = tk.Text(resultados_frame, height=10, wrap=tk.WORD, 
-                                       font=("Consolas", 10), bg="#f8f9fa", fg="#2c3e50")
-        scroll_pedidos_hu3 = ttk.Scrollbar(resultados_frame, orient="vertical", command=self.text_pedidos_hu3.yview)
-        self.text_pedidos_hu3.configure(yscrollcommand=scroll_pedidos_hu3.set)
+        # Frame para mostrar la solicitud actual
+        solicitud_frame = ttk.LabelFrame(main_frame, text="Solicitud Actual", padding="15")
+        solicitud_frame.pack(fill="both", expand=True, pady=10)
         
-        self.text_pedidos_hu3.pack(side="left", fill="both", expand=True)
-        scroll_pedidos_hu3.pack(side="right", fill="y")
+        # Crear Treeview para mostrar productos faltantes
+        columns = ('ID', 'Producto', 'Cantidad')
+        self.tree_solicitud_hu3 = ttk.Treeview(solicitud_frame, columns=columns, show='headings', height=15)
         
-        # Cargar pedidos existentes
-        self.cargar_pedidos_existentes_hu3()
+        for col in columns:
+            self.tree_solicitud_hu3.heading(col, text=col)
+        
+        self.tree_solicitud_hu3.column('ID', width=80, anchor='center')
+        self.tree_solicitud_hu3.column('Producto', width=300)
+        self.tree_solicitud_hu3.column('Cantidad', width=120, anchor='center')
+        
+        # Scrollbar para el Treeview
+        scrollbar_solicitud = ttk.Scrollbar(solicitud_frame, orient="vertical", command=self.tree_solicitud_hu3.yview)
+        self.tree_solicitud_hu3.configure(yscrollcommand=scrollbar_solicitud.set)
+        
+        self.tree_solicitud_hu3.grid(row=0, column=0, sticky="nsew")
+        scrollbar_solicitud.grid(row=0, column=1, sticky="ns")
+        
+        solicitud_frame.grid_rowconfigure(0, weight=1)
+        solicitud_frame.grid_columnconfigure(0, weight=1)
+        
+        # Cargar datos iniciales
+        self.actualizar_tree_solicitud_hu3()
+        
+        # Guardar referencia a la ventana para poder cerrarla
+        self.ventana_hu3 = ventana
 
-    def guardar_pedido_hu3(self):
-        """Guardar nuevo pedido de insumos"""
+    def actualizar_tree_solicitud_hu3(self):
+        """Actualizar el Treeview con la solicitud actual"""
+        # Limpiar tree
+        for item in self.tree_solicitud_hu3.get_children():
+            self.tree_solicitud_hu3.delete(item)
+            
+        # Agregar datos de la solicitud actual
+        for _, row in self.solicitud_actual.iterrows():
+            self.tree_solicitud_hu3.insert('', 'end', values=(
+                row.get('id', ''),
+                row.get('producto', ''),
+                row.get('cantidad', '')
+            ))
+    
+    def mostrar_sugerencia_solicitud_hu3(self):
+        """1. Mostrar sugerencia de solicitud (igual a main.py)"""
         try:
-            granja = self.entry_granja_hu3.get().strip()
-            fecha = self.entry_fecha_hu3.get().strip()
-            producto = self.entry_producto_hu3.get().strip()
-            cantidad_str = self.entry_cantidad_hu3.get().strip()
+            # Convertir DataFrame a string para mostrar
+            solicitud_texto = "📦 Insumos sugeridos para solicitar:\n\n"
+            solicitud_texto += self.solicitud_actual.to_string(index=False)
             
-            if not all([granja, fecha, producto, cantidad_str]):
-                messagebox.showwarning("Error", "Por favor complete todos los campos")
+            # Crear ventana para mostrar la sugerencia
+            ventana_sugerencia = self.crear_ventana_secundaria("📋 Sugerencia de Solicitud", "600x500")
+            
+            frame_sugerencia = ttk.Frame(ventana_sugerencia, padding="20")
+            frame_sugerencia.pack(fill="both", expand=True)
+            
+            ttk.Label(frame_sugerencia, text="Sugerencia de Solicitud de Compra", 
+                     style='Subtitle.TLabel').pack(pady=10)
+            
+            # Texto con la información
+            text_widget = tk.Text(frame_sugerencia, height=20, wrap=tk.WORD, 
+                                 font=("Consolas", 10), bg="#f8f9fa", fg="#2c3e50")
+            scrollbar_text = ttk.Scrollbar(frame_sugerencia, orient="vertical", command=text_widget.yview)
+            text_widget.configure(yscrollcommand=scrollbar_text.set)
+            
+            text_widget.insert(tk.END, solicitud_texto)
+            text_widget.configure(state='disabled')  # Solo lectura
+            
+            text_widget.pack(side="left", fill="both", expand=True)
+            scrollbar_text.pack(side="right", fill="y")
+            
+            ttk.Button(frame_sugerencia, text="Cerrar", 
+                      command=ventana_sugerencia.destroy,
+                      style='Primary.TButton').pack(pady=10)
+                      
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al mostrar sugerencia: {str(e)}")
+    
+    def editar_solicitud_hu3(self):
+        """2. Editar solicitud (igual flujo que main.py)"""
+        ventana_editar = self.crear_ventana_secundaria("✏️ Editar Solicitud", "600x500")
+        
+        main_frame = ttk.Frame(ventana_editar, padding="20")
+        main_frame.pack(fill="both", expand=True)
+        
+        ttk.Label(main_frame, text="Editar Solicitud", 
+                 style='Subtitle.TLabel').pack(pady=10)
+        
+        # Botones del submenú (igual a main.py)
+        submenu_frame = ttk.LabelFrame(main_frame, text="Opciones de Edición", padding="15")
+        submenu_frame.pack(fill="x", pady=10)
+        
+        ttk.Button(submenu_frame, text="1. Agregar Producto", 
+                  command=lambda: self.agregar_producto_solicitud_hu3(ventana_editar),
+                  style='Success.TButton').pack(fill="x", pady=5)
+        
+        ttk.Button(submenu_frame, text="2. Eliminar Producto", 
+                  command=lambda: self.eliminar_producto_solicitud_hu3(ventana_editar),
+                  style='Danger.TButton').pack(fill="x", pady=5)
+        
+        ttk.Button(submenu_frame, text="3. Modificar Cantidad", 
+                  command=lambda: self.modificar_cantidad_solicitud_hu3(ventana_editar),
+                  style='Warning.TButton').pack(fill="x", pady=5)
+        
+        ttk.Button(submenu_frame, text="4. Volver", 
+                  command=ventana_editar.destroy,
+                  style='Secondary.TButton').pack(fill="x", pady=5)
+        
+        # Vista previa de la solicitud actual
+        preview_frame = ttk.LabelFrame(main_frame, text="Solicitud Actual", padding="15")
+        preview_frame.pack(fill="both", expand=True, pady=10)
+        
+        # Mini Treeview para edición
+        columns_edit = ('ID', 'Producto', 'Cantidad')
+        self.tree_editar_hu3 = ttk.Treeview(preview_frame, columns=columns_edit, show='headings', height=10)
+        
+        for col in columns_edit:
+            self.tree_editar_hu3.heading(col, text=col)
+        
+        self.tree_editar_hu3.column('ID', width=80, anchor='center')
+        self.tree_editar_hu3.column('Producto', width=250)
+        self.tree_editar_hu3.column('Cantidad', width=100, anchor='center')
+        
+        scrollbar_edit = ttk.Scrollbar(preview_frame, orient="vertical", command=self.tree_editar_hu3.yview)
+        self.tree_editar_hu3.configure(yscrollcommand=scrollbar_edit.set)
+        
+        self.tree_editar_hu3.pack(side="left", fill="both", expand=True)
+        scrollbar_edit.pack(side="right", fill="y")
+        
+        # Actualizar vista previa
+        self.actualizar_tree_editar_hu3()
+    
+    def actualizar_tree_editar_hu3(self):
+        """Actualizar el tree de edición"""
+        for item in self.tree_editar_hu3.get_children():
+            self.tree_editar_hu3.delete(item)
+            
+        for _, row in self.solicitud_actual.iterrows():
+            self.tree_editar_hu3.insert('', 'end', values=(
+                row.get('id', ''),
+                row.get('producto', ''),
+                row.get('cantidad', '')
+            ))
+    
+    def agregar_producto_solicitud_hu3(self, ventana_padre):
+        """Agregar producto a la solicitud (igual lógica que main.py)"""
+        def procesar_agregar():
+            nombre = entry_nombre.get().strip()
+            cantidad_str = entry_cantidad.get().strip()
+            
+            if not nombre:
+                messagebox.showerror("Error", "❌ Debe ingresar un nombre de producto")
+                return
+                
+            if not cantidad_str.isdigit() or int(cantidad_str) <= 0:
+                messagebox.showerror("Error", "❌ Cantidad inválida.")
                 return
             
-            try:
-                cantidad = float(cantidad_str)
-                if cantidad <= 0:
-                    raise ValueError("La cantidad debe ser mayor a 0")
-            except ValueError:
-                messagebox.showwarning("Error", "Por favor ingrese una cantidad válida")
-                return
-            
+            # Agregar nuevo producto (igual lógica que main.py)
             import pandas as pd
-            import os
-            from datetime import datetime
+            nueva_fila = pd.DataFrame([[999, nombre, int(cantidad_str)]], columns=["id", "producto", "cantidad"])
+            self.solicitud_actual = pd.concat([self.solicitud_actual, nueva_fila], ignore_index=True)
             
-            # Crear registro del pedido
-            nuevo_pedido = {
-                'id': datetime.now().strftime('%Y%m%d%H%M%S'),
-                'granja': granja,
-                'fecha': fecha,
-                'producto': producto,
-                'cantidad': cantidad,
-                'estado': 'Pendiente',
-                'fecha_registro': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            }
+            messagebox.showinfo("Éxito", "✅ Producto agregado.")
             
-            # Guardar en archivo
-            archivo_pedidos = os.path.join("data", "pedidos_granja.xlsx")
+            # Actualizar vistas
+            self.actualizar_tree_solicitud_hu3()
+            self.actualizar_tree_editar_hu3()
             
-            if os.path.exists(archivo_pedidos):
-                df_pedidos = pd.read_excel(archivo_pedidos)
-                df_pedidos = pd.concat([df_pedidos, pd.DataFrame([nuevo_pedido])], ignore_index=True)
+            ventana_agregar.destroy()
+        
+        ventana_agregar = tk.Toplevel(ventana_padre)
+        ventana_agregar.title("Agregar Producto")
+        ventana_agregar.geometry("400x200")
+        ventana_agregar.transient(ventana_padre)
+        ventana_agregar.grab_set()
+        
+        frame = ttk.Frame(ventana_agregar, padding="20")
+        frame.pack(fill="both", expand=True)
+        
+        ttk.Label(frame, text="Agregar Nuevo Producto", style='Subtitle.TLabel').pack(pady=10)
+        
+        ttk.Label(frame, text="Nombre del producto:").pack(anchor="w", pady=5)
+        entry_nombre = ttk.Entry(frame, width=40)
+        entry_nombre.pack(pady=5)
+        
+        ttk.Label(frame, text="Cantidad:").pack(anchor="w", pady=5)
+        entry_cantidad = ttk.Entry(frame, width=40)
+        entry_cantidad.pack(pady=5)
+        
+        btn_frame = ttk.Frame(frame)
+        btn_frame.pack(pady=20)
+        
+        ttk.Button(btn_frame, text="✅ Agregar", command=procesar_agregar).pack(side="left", padx=10)
+        ttk.Button(btn_frame, text="❌ Cancelar", command=ventana_agregar.destroy).pack(side="left", padx=10)
+    
+    def eliminar_producto_solicitud_hu3(self, ventana_padre):
+        """Eliminar producto de la solicitud (igual lógica que main.py)"""
+        def procesar_eliminar():
+            nombre = entry_nombre.get().strip().lower()
+            
+            if not nombre:
+                messagebox.showerror("Error", "❌ Debe ingresar un nombre de producto")
+                return
+            
+            # Eliminar producto (igual lógica que main.py)
+            original_len = len(self.solicitud_actual)
+            self.solicitud_actual = self.solicitud_actual[~self.solicitud_actual["producto"].str.lower().str.strip().eq(nombre)]
+            
+            if len(self.solicitud_actual) < original_len:
+                messagebox.showinfo("Éxito", "✅ Producto eliminado.")
+                # Actualizar vistas
+                self.actualizar_tree_solicitud_hu3()
+                self.actualizar_tree_editar_hu3()
             else:
-                df_pedidos = pd.DataFrame([nuevo_pedido])
+                messagebox.showerror("Error", "❌ Producto no encontrado.")
             
-            df_pedidos.to_excel(archivo_pedidos, index=False)
+            ventana_eliminar.destroy()
+        
+        ventana_eliminar = tk.Toplevel(ventana_padre)
+        ventana_eliminar.title("Eliminar Producto")
+        ventana_eliminar.geometry("400x150")
+        ventana_eliminar.transient(ventana_padre)
+        ventana_eliminar.grab_set()
+        
+        frame = ttk.Frame(ventana_eliminar, padding="20")
+        frame.pack(fill="both", expand=True)
+        
+        ttk.Label(frame, text="Eliminar Producto", style='Subtitle.TLabel').pack(pady=10)
+        
+        ttk.Label(frame, text="Nombre del producto a eliminar:").pack(anchor="w", pady=5)
+        entry_nombre = ttk.Entry(frame, width=40)
+        entry_nombre.pack(pady=5)
+        
+        btn_frame = ttk.Frame(frame)
+        btn_frame.pack(pady=20)
+        
+        ttk.Button(btn_frame, text="🗑️ Eliminar", command=procesar_eliminar).pack(side="left", padx=10)
+        ttk.Button(btn_frame, text="❌ Cancelar", command=ventana_eliminar.destroy).pack(side="left", padx=10)
+    
+    def modificar_cantidad_solicitud_hu3(self, ventana_padre):
+        """Modificar cantidad de producto en la solicitud (igual lógica que main.py)"""
+        def procesar_modificar():
+            nombre = entry_nombre.get().strip().lower()
+            cantidad_str = entry_cantidad.get().strip()
             
-            messagebox.showinfo("Éxito", 
-                f"✅ Pedido registrado correctamente!\n\n"
-                f"🏢 Granja: {granja}\n"
-                f"📦 Producto: {producto}\n"
-                f"📊 Cantidad: {cantidad}")
+            if not nombre:
+                messagebox.showerror("Error", "❌ Debe ingresar un nombre de producto")
+                return
+                
+            if nombre not in self.solicitud_actual["producto"].str.lower().str.strip().values:
+                messagebox.showerror("Error", "❌ Producto no encontrado.")
+                return
             
-            # Limpiar campos y actualizar vista
-            self.limpiar_campos_hu3()
-            self.cargar_pedidos_existentes_hu3()
+            if not cantidad_str.isdigit() or int(cantidad_str) <= 0:
+                messagebox.showerror("Error", "❌ Cantidad inválida.")
+                return
+            
+            # Modificar cantidad (igual lógica que main.py)
+            idx = self.solicitud_actual[self.solicitud_actual["producto"].str.lower().str.strip() == nombre].index[0]
+            self.solicitud_actual.at[idx, "cantidad"] = int(cantidad_str)
+            
+            messagebox.showinfo("Éxito", "✅ Cantidad actualizada.")
+            
+            # Actualizar vistas
+            self.actualizar_tree_solicitud_hu3()
+            self.actualizar_tree_editar_hu3()
+            
+            ventana_modificar.destroy()
+        
+        ventana_modificar = tk.Toplevel(ventana_padre)
+        ventana_modificar.title("Modificar Cantidad")
+        ventana_modificar.geometry("400x200")
+        ventana_modificar.transient(ventana_padre)
+        ventana_modificar.grab_set()
+        
+        frame = ttk.Frame(ventana_modificar, padding="20")
+        frame.pack(fill="both", expand=True)
+        
+        ttk.Label(frame, text="Modificar Cantidad", style='Subtitle.TLabel').pack(pady=10)
+        
+        ttk.Label(frame, text="Nombre del producto a modificar:").pack(anchor="w", pady=5)
+        entry_nombre = ttk.Entry(frame, width=40)
+        entry_nombre.pack(pady=5)
+        
+        ttk.Label(frame, text="Nueva cantidad:").pack(anchor="w", pady=5)
+        entry_cantidad = ttk.Entry(frame, width=40)
+        entry_cantidad.pack(pady=5)
+        
+        btn_frame = ttk.Frame(frame)
+        btn_frame.pack(pady=20)
+        
+        ttk.Button(btn_frame, text="✏️ Modificar", command=procesar_modificar).pack(side="left", padx=10)
+        ttk.Button(btn_frame, text="❌ Cancelar", command=ventana_modificar.destroy).pack(side="left", padx=10)
+    
+    def validar_solicitud_hu3(self):
+        """3. Validar información (igual lógica que main.py)"""
+        try:
+            errores = []
+            for _, row in self.solicitud_actual.iterrows():
+                if not row["producto"] or not isinstance(row["cantidad"], (int, float)):
+                    errores.append(f"❌ Producto inválido o sin cantidad: {row.to_dict()}")
+                elif row["cantidad"] <= 0:
+                    errores.append(f"❌ Cantidad inválida para producto '{row['producto']}': {row['cantidad']}")
+
+            if errores:
+                error_texto = "\n❌ Se encontraron errores en la solicitud:\n\n"
+                for e in errores:
+                    error_texto += f"- {e}\n"
+                messagebox.showerror("Errores de Validación", error_texto)
+            else:
+                messagebox.showinfo("Validación", "✅ Toda la información de la solicitud es válida.")
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al validar solicitud: {str(e)}")
+    
+    def guardar_solicitud_hu3(self):
+        """4. Guardar solicitud (igual lógica que main.py)"""
+        try:
+            import os
+            from main import guardar_excel, inventario
+            
+            archivo_solicitud = os.path.join(os.path.dirname(inventario), "solicitud_compra.xlsx")
+            guardar_excel(self.solicitud_actual, archivo_solicitud)
+            
+            messagebox.showinfo("Éxito", "✅ Solicitud guardada correctamente.")
             
         except Exception as e:
-            messagebox.showerror("Error", f"Error al guardar pedido: {str(e)}")
-
-    def ver_pedidos_hu3(self):
-        """Ver todos los pedidos registrados"""
+            messagebox.showerror("Error", f"Error al guardar solicitud: {str(e)}")
+    
+    def enviar_solicitud_hu3(self):
+        """5. Enviar solicitud (igual lógica que main.py)"""
         try:
-            import pandas as pd
             import os
+            from main import inventario
+            from email.message import EmailMessage
+            import smtplib
             
-            archivo_pedidos = os.path.join("data", "pedidos_granja.xlsx")
-            
-            if not os.path.exists(archivo_pedidos):
-                messagebox.showinfo("Sin Datos", "No hay pedidos registrados aún")
+            archivo = os.path.join(os.path.dirname(inventario), "solicitud_compra.xlsx")
+            if not os.path.exists(archivo):
+                messagebox.showerror("Error", "❌ No se ha guardado la solicitud aún.")
                 return
-            
-            df_pedidos = pd.read_excel(archivo_pedidos)
-            
-            if df_pedidos.empty:
-                messagebox.showinfo("Sin Datos", "No hay pedidos registrados")
-                return
-            
-            # Mostrar en nueva ventana
-            ventana_pedidos = self.crear_ventana_secundaria("📊 Pedidos Registrados", "900x600")
-            
-            frame_pedidos = ttk.Frame(ventana_pedidos, padding="20")
-            frame_pedidos.pack(fill="both", expand=True)
-            
-            # Crear Treeview para mostrar pedidos
-            columns = ('ID', 'Granja', 'Fecha', 'Producto', 'Cantidad', 'Estado')
-            tree_pedidos = ttk.Treeview(frame_pedidos, columns=columns, show='headings', height=15)
-            
-            for col in columns:
-                tree_pedidos.heading(col, text=col)
-                tree_pedidos.column(col, width=120)
-            
-            # Llenar con datos
-            for _, row in df_pedidos.iterrows():
-                tree_pedidos.insert('', 'end', values=(
-                    row['id'], row['granja'], row['fecha'], 
-                    row['producto'], row['cantidad'], row['estado']
-                ))
-            
-            scrollbar_pedidos = ttk.Scrollbar(frame_pedidos, orient="vertical", command=tree_pedidos.yview)
-            tree_pedidos.configure(yscrollcommand=scrollbar_pedidos.set)
-            
-            tree_pedidos.pack(side="left", fill="both", expand=True)
-            scrollbar_pedidos.pack(side="right", fill="y")
-            
-        except Exception as e:
-            messagebox.showerror("Error", f"Error al cargar pedidos: {str(e)}")
 
-    def limpiar_campos_hu3(self):
-        """Limpiar todos los campos de entrada"""
-        self.entry_granja_hu3.delete(0, tk.END)
-        self.entry_fecha_hu3.delete(0, tk.END)
-        self.entry_producto_hu3.delete(0, tk.END)
-        self.entry_cantidad_hu3.delete(0, tk.END)
-        self.entry_granja_hu3.focus()
-
-    def cargar_pedidos_existentes_hu3(self):
-        """Cargar y mostrar pedidos existentes en el área de texto"""
-        try:
-            import pandas as pd
-            import os
-            
-            # Asegurar que el directorio data existe
-            data_dir = "data"
-            if not os.path.exists(data_dir):
-                os.makedirs(data_dir)
-            
-            self.text_pedidos_hu3.delete(1.0, tk.END)
-            self.text_pedidos_hu3.insert(tk.END, "📋 PEDIDOS DE INSUMOS REGISTRADOS\n")
-            self.text_pedidos_hu3.insert(tk.END, "=" * 50 + "\n\n")
-            
-            archivo_pedidos = os.path.join("data", "pedidos_granja.xlsx")
-            
-            if not os.path.exists(archivo_pedidos):
-                self.text_pedidos_hu3.insert(tk.END, "No hay pedidos registrados aún.\n")
-                self.text_pedidos_hu3.insert(tk.END, "Use el formulario superior para agregar pedidos.\n")
+            # Pedir correo del destinatario
+            destinatario = self.pedir_correo_hu3()
+            if not destinatario:
                 return
             
+            # Configuración de correo (igual que main.py)
+            email_remitente = "elcoordinadordecompras@gmail.com"
+            contraseña = "iocsdhwphxxhbzzp"
+            
+            mensaje = EmailMessage()
+            mensaje["Subject"] = "📋 Solicitud de compra de insumos"
+            mensaje["From"] = email_remitente
+            mensaje["To"] = destinatario
+            mensaje.set_content("Adjunto se encuentra la solicitud de compra de insumos para cumplir la demanda.")
+
+            with open(archivo, "rb") as f:
+                mensaje.add_attachment(
+                    f.read(),
+                    maintype="application",
+                    subtype="vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    filename="solicitud_compra.xlsx"
+                )
+
             try:
-                df_pedidos = pd.read_excel(archivo_pedidos)
+                with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+                    smtp.login(email_remitente, contraseña)
+                    smtp.send_message(mensaje)
+                    messagebox.showinfo("Éxito", "📧 Solicitud enviada correctamente.")
+            except Exception as e:
+                messagebox.showerror("Error Email", f"❌ Error al enviar la solicitud: {e}")
                 
-                if df_pedidos.empty:
-                    self.text_pedidos_hu3.insert(tk.END, "No hay pedidos registrados.\n")
-                    return
-                
-                # Verificar que las columnas existan
-                columnas_requeridas = ['granja', 'producto', 'cantidad', 'fecha']
-                if not all(col in df_pedidos.columns for col in columnas_requeridas):
-                    self.text_pedidos_hu3.insert(tk.END, "Archivo de pedidos con formato incorrecto.\n")
-                    self.text_pedidos_hu3.insert(tk.END, "Use el formulario para crear nuevos pedidos.\n")
-                    return
-                
-                self.text_pedidos_hu3.insert(tk.END, f"Total de pedidos: {len(df_pedidos)}\n\n")
-                
-                # Mostrar últimos 5 pedidos
-                ultimos_pedidos = df_pedidos.tail(5)
-                for _, row in ultimos_pedidos.iterrows():
-                    self.text_pedidos_hu3.insert(tk.END, 
-                        f"🏢 {row['granja']} | 📦 {row['producto']} | "
-                        f"📊 {row['cantidad']} | 📅 {row['fecha']}\n")
-                
-                if len(df_pedidos) > 5:
-                    self.text_pedidos_hu3.insert(tk.END, f"\n... y {len(df_pedidos) - 5} pedidos más\n")
-                
-                self.text_pedidos_hu3.insert(tk.END, "\nUse 'Ver Pedidos' para ver la lista completa.\n")
-                
-            except Exception as read_error:
-                self.text_pedidos_hu3.insert(tk.END, f"Error al leer archivo de pedidos: {str(read_error)}\n")
-                self.text_pedidos_hu3.insert(tk.END, "Use el formulario superior para agregar pedidos.\n")
-            
         except Exception as e:
-            self.text_pedidos_hu3.insert(tk.END, f"Error general: {str(e)}\n")
+            messagebox.showerror("Error", f"Error en envío de solicitud: {str(e)}")
+    
+    def pedir_correo_hu3(self):
+        """Pedir correo del destinatario con validación (igual que main.py)"""
+        import re
+        
+        def validar_y_enviar():
+            correo = entry_correo.get().strip()
+            patron = r"^[\w\.-]+@[\w\.-]+\.\w{2,}$"
+            
+            if re.match(patron, correo):
+                self.correo_destinatario = correo
+                ventana_correo.destroy()
+            else:
+                messagebox.showerror("Error", "❌ El correo ingresado no es válido. Verifica el formato (ej: ejemplo@dominio.com). Inténtalo de nuevo.")
+        
+        self.correo_destinatario = None
+        
+        ventana_correo = tk.Toplevel()
+        ventana_correo.title("Correo Destinatario")
+        ventana_correo.geometry("400x150")
+        ventana_correo.transient()
+        ventana_correo.grab_set()
+        
+        frame = ttk.Frame(ventana_correo, padding="20")
+        frame.pack(fill="both", expand=True)
+        
+        ttk.Label(frame, text="📧 Ingrese el correo del destinatario:", style='Custom.TLabel').pack(anchor="w", pady=5)
+        entry_correo = ttk.Entry(frame, width=40)
+        entry_correo.pack(pady=5)
+        
+        btn_frame = ttk.Frame(frame)
+        btn_frame.pack(pady=20)
+        
+        ttk.Button(btn_frame, text="✅ Enviar", command=validar_y_enviar).pack(side="left", padx=10)
+        ttk.Button(btn_frame, text="❌ Cancelar", command=ventana_correo.destroy).pack(side="left", padx=10)
+        
+        # Esperar a que se cierre la ventana
+        ventana_correo.wait_window()
+        
+        return getattr(self, 'correo_destinatario', None)
 
-    def abrir_hu8_completa(self):
-        """Abrir la interfaz completa de solicitudes (HU8)"""
-        try:
-            messagebox.showinfo("Abriendo Interfaz Avanzada", 
-                "🔄 Abriendo interfaz avanzada de solicitudes...\n\n"
-                "Se abrirá el sistema completo que incluye:\n"
-                "• Edición manual de productos\n"
-                "• Validación de datos\n"
-                "• Envío por email\n"
-                "• Historial de solicitudes")
-            self.menu_reportes_solicitudes()
-        except Exception as e:
-            messagebox.showerror("Error", f"Error al abrir interfaz avanzada: {str(e)}")
-            
     def menu_recepcion_insumos(self):
         """Menú para recepción de insumos con control de conformidad"""
         ventana = self.crear_ventana_secundaria("📥 Recepción de Insumos", "900x700")
