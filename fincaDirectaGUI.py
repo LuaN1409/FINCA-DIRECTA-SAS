@@ -546,13 +546,13 @@ class SistemaFincaDirectaGUI:
             ("📊 Consultar Demanda de Pedidos", "Análisis de solicitudes (HU4)", self.menu_consulta_pedidos, 0, 0),
             ("📦 Consultar Inventario", "Control de stock disponible (HU1)", self.menu_inventario, 0, 1),
             ("✅ Verificar Disponibilidad", "Validar insumos requeridos (HU2)", self.menu_verificar_disponibilidad, 0, 2),
-            ("� Solicitud de Compra", "Generar solicitudes de insumos (HU3)", self.menu_registro_pedidos_hu3, 0, 3),
-            ("�📥 Recepción de Insumos", "Registrar llegadas (HU5)", self.menu_recepcion_insumos, 1, 0),
-            ("� Reportar Insumos Defectuosos", "Control de calidad y cantidad (HU6)", self.menu_reportar_defectuosos, 1, 0),
-            ("�📋 Reportes de Recepción", "Estadísticas de recepción (HU7)", self.menu_reportes_recepcion, 1, 1),
-            ("🛒 Reportes de Solicitudes", "Gestión de compras (HU8)", self.menu_solicitud_compra_hu8, 1, 2),
-            ("🚚 Reportes Insumos Listos", "Estado de preparación (HU10)", self.menu_reportes_insumos_listos, 1, 3),
-            ("⚙️ Configuración", "Ajustes del sistema", self.mostrar_configuracion, 2, 0)
+            ("📋 Solicitud de Compra", "Generar solicitudes de insumos (HU3)", self.menu_registro_pedidos_hu3, 0, 3),
+            ("📥 Recepción de Insumos", "Registrar llegadas (HU5)", self.menu_recepcion_insumos, 1, 0),
+            ("⚠️ Reportar Insumos Defectuosos", "Control de calidad y cantidad (HU6)", self.menu_reportar_defectuosos, 1, 1),
+            ("📋 Reportes de Recepción", "Estadísticas de recepción (HU7)", self.menu_reportes_recepcion, 1, 2),
+            ("🛒 Reportes de Solicitudes", "Gestión de compras (HU8)", self.menu_solicitud_compra_hu8, 1, 3),
+            ("🚚 Reportes Insumos Listos", "Estado de preparación (HU10)", self.menu_reportes_insumos_listos, 2, 0),
+            ("⚙️ Configuración", "Ajustes del sistema", self.mostrar_configuracion, 2, 1)
         ]
         
         for texto, descripcion, comando, fila, columna in modulos:
