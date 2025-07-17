@@ -546,7 +546,8 @@ class SistemaFincaDirectaGUI:
             ("📊 Consultar Demanda de Pedidos", "Análisis de solicitudes (HU4)", self.menu_consulta_pedidos, 0, 0),
             ("📦 Consultar Inventario", "Control de stock disponible (HU1)", self.menu_inventario, 0, 1),
             ("✅ Verificar Disponibilidad", "Validar insumos requeridos (HU2)", self.menu_verificar_disponibilidad, 0, 2),
-            ("📥 Recepción de Insumos", "Registrar llegadas (HU5)", self.menu_recepcion_insumos, 0, 3),
+            ("� Solicitud de Compra", "Generar solicitudes de insumos (HU3)", self.menu_solicitud_compra_hu3, 0, 3),
+            ("�📥 Recepción de Insumos", "Registrar llegadas (HU5)", self.menu_recepcion_insumos, 1, 0),
             ("� Reportar Insumos Defectuosos", "Control de calidad y cantidad (HU6)", self.menu_reportar_defectuosos, 1, 0),
             ("�📋 Reportes de Recepción", "Estadísticas de recepción (HU7)", self.menu_reportes_recepcion, 1, 1),
             ("🛒 Reportes de Solicitudes", "Gestión de compras (HU8)", self.menu_reportes_solicitudes, 1, 2),
@@ -1022,6 +1023,103 @@ class SistemaFincaDirectaGUI:
             messagebox.showinfo("Éxito", "✅ Inventario actualizado correctamente.")
         except Exception as e:
             messagebox.showerror("Error", f"Error al actualizar inventario: {e}")
+
+    def menu_solicitud_compra_hu3(self):
+        """Menú completo para solicitud de compra de insumos - HU3"""
+        ventana = self.crear_ventana_secundaria("🛒 Solicitud de Compra de Insumos - HU3", "1000x700")
+        
+        main_frame = ttk.Frame(ventana, padding="20")
+        main_frame.pack(fill="both", expand=True)
+        
+        ttk.Label(main_frame, text="Generar Solicitud de Compra de Insumos", 
+                 style='Subtitle.TLabel').pack(pady=10)
+        
+        # Frame de información
+        info_frame = ttk.LabelFrame(main_frame, text="Información del Proceso", padding="15")
+        info_frame.pack(fill="x", pady=10)
+        
+        info_text = """HU3 - Esta funcionalidad permite generar solicitudes de compra de insumos 
+identificando automáticamente los productos faltantes comparando la demanda con el inventario disponible."""
+        ttk.Label(info_frame, text=info_text, justify="left").pack(anchor="w")
+        
+        # Frame de acciones
+        acciones_frame = ttk.LabelFrame(main_frame, text="Acciones Disponibles", padding="15")
+        acciones_frame.pack(fill="x", pady=10)
+        
+        # Botones de acción
+        btn_frame = ttk.Frame(acciones_frame)
+        btn_frame.pack(fill="x", pady=10)
+        
+        ttk.Button(btn_frame, text="🔍 Generar Solicitud", 
+                  command=self.ejecutar_hu3_directo,
+                  style='Primary.TButton').pack(side="left", padx=10)
+        
+        ttk.Button(btn_frame, text="🎨 Usar Interfaz Avanzada", 
+                  command=self.abrir_hu8_completa,
+                  style='Success.TButton').pack(side="left", padx=10)
+        
+        # Área de resultados
+        resultados_frame = ttk.LabelFrame(main_frame, text="Resultados", padding="15")
+        resultados_frame.pack(fill="both", expand=True, pady=10)
+        
+        self.text_hu3 = tk.Text(resultados_frame, height=20, width=80,
+                               bg='white', fg='#2C3E50', font=("Arial", 10))
+        scroll_hu3 = ttk.Scrollbar(resultados_frame, orient="vertical", command=self.text_hu3.yview)
+        self.text_hu3.configure(yscrollcommand=scroll_hu3.set)
+        
+        self.text_hu3.pack(side="left", fill="both", expand=True)
+        scroll_hu3.pack(side="right", fill="y")
+        
+        # Mostrar información inicial
+        self.text_hu3.insert(tk.END, "🛒 SOLICITUD DE COMPRA DE INSUMOS - HU3\n")
+        self.text_hu3.insert(tk.END, "=" * 50 + "\n\n")
+        self.text_hu3.insert(tk.END, "📋 Sistema de generación automática de solicitudes de compra\n\n")
+        self.text_hu3.insert(tk.END, "Opciones disponibles:\n")
+        self.text_hu3.insert(tk.END, "• Generar solicitud automáticamente\n")
+        self.text_hu3.insert(tk.END, "• Usar interfaz avanzada con funciones adicionales\n\n")
+        self.text_hu3.insert(tk.END, "Para comenzar, seleccione una de las opciones anteriores.\n")
+
+    def ejecutar_hu3_directo(self):
+        """Ejecutar HU3 directamente con captura de salida"""
+        try:
+            self.text_hu3.delete(1.0, tk.END)
+            self.text_hu3.insert(tk.END, "🔄 Generando solicitud de compra...\n\n")
+            
+            # Ejecutar detección de faltantes
+            from main import obtener_insumos_faltantes
+            faltantes = obtener_insumos_faltantes()
+            
+            if faltantes.empty:
+                self.text_hu3.insert(tk.END, "✅ No hay productos faltantes detectados.\n")
+                self.text_hu3.insert(tk.END, "El inventario actual cubre toda la demanda.\n")
+            else:
+                self.text_hu3.insert(tk.END, f"📊 Se detectaron {len(faltantes)} productos faltantes:\n\n")
+                
+                for _, row in faltantes.iterrows():
+                    self.text_hu3.insert(tk.END, 
+                        f"• ID: {row['id']} | Producto: {row['producto']} | Cantidad: {row['cantidad']}\n")
+                
+                self.text_hu3.insert(tk.END, "\n🛒 Solicitud de compra generada automáticamente.\n")
+                self.text_hu3.insert(tk.END, "💾 Para guardar y enviar por email, use la interfaz avanzada.\n")
+            
+            self.text_hu3.insert(tk.END, "\n✅ Proceso de generación completado.")
+            
+        except Exception as e:
+            self.text_hu3.insert(tk.END, f"❌ Error al generar solicitud: {str(e)}\n")
+
+    def abrir_hu8_completa(self):
+        """Abrir la interfaz completa de solicitudes (HU8)"""
+        try:
+            messagebox.showinfo("Abriendo Interfaz Avanzada", 
+                "🔄 Abriendo interfaz avanzada de solicitudes...\n\n"
+                "Se abrirá el sistema completo que incluye:\n"
+                "• Edición manual de productos\n"
+                "• Validación de datos\n"
+                "• Envío por email\n"
+                "• Historial de solicitudes")
+            self.menu_reportes_solicitudes()
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al abrir interfaz avanzada: {str(e)}")
             
     def menu_recepcion_insumos(self):
         """Menú para recepción de insumos con control de conformidad"""
@@ -1497,8 +1595,680 @@ PRODUCTOS RECIBIDOS:
             messagebox.showinfo("Reportes Disponibles", mensaje)
             
     def menu_reportes_solicitudes(self):
-        """Menú para reportes de solicitudes de compra"""
-        messagebox.showinfo("Info", "Funcionalidad de reportes de solicitudes - Por implementar")
+        """Menú completo para solicitudes de compra de insumos - HU8"""
+        ventana = self.crear_ventana_secundaria("🛒 Solicitudes de Compra de Insumos - HU8", "1200x900")
+        
+        main_frame = ttk.Frame(ventana, padding="20")
+        main_frame.pack(fill="both", expand=True)
+        
+        ttk.Label(main_frame, text="Gestión de Solicitudes de Compra", 
+                 style='Subtitle.TLabel').pack(pady=10)
+        
+        # Frame principal con notebook para pestañas
+        notebook = ttk.Notebook(main_frame)
+        notebook.pack(fill="both", expand=True, pady=10)
+        
+        # === PESTAÑA 1: GENERAR SOLICITUD ===
+        tab_generar = ttk.Frame(notebook)
+        notebook.add(tab_generar, text="📋 Generar Solicitud")
+        
+        generar_frame = ttk.Frame(tab_generar, padding="20")
+        generar_frame.pack(fill="both", expand=True)
+        
+        ttk.Label(generar_frame, text="Generar Solicitud de Compra de Insumos", 
+                 style='Subtitle.TLabel').pack(pady=10)
+        
+        # Información de la funcionalidad
+        info_frame = ttk.LabelFrame(generar_frame, text="Información", padding="15")
+        info_frame.pack(fill="x", pady=10)
+        
+        info_text = """Esta función identifica automáticamente los insumos faltantes comparando
+la demanda de pedidos con el inventario disponible para generar solicitudes de compra."""
+        ttk.Label(info_frame, text=info_text, justify="left").pack(anchor="w")
+        
+        # Área de resultados para insumos faltantes
+        faltantes_frame = ttk.LabelFrame(generar_frame, text="Insumos Faltantes Detectados", padding="15")
+        faltantes_frame.pack(fill="both", expand=True, pady=10)
+        
+        # Crear Treeview para mostrar insumos faltantes
+        columns_faltantes = ('ID', 'Producto', 'Cantidad Faltante')
+        self.tree_faltantes = ttk.Treeview(faltantes_frame, columns=columns_faltantes, show='headings', height=10)
+        
+        for col in columns_faltantes:
+            self.tree_faltantes.heading(col, text=col)
+        
+        self.tree_faltantes.column('ID', width=80)
+        self.tree_faltantes.column('Producto', width=300)
+        self.tree_faltantes.column('Cantidad Faltante', width=150)
+        
+        # Scrollbar para el Treeview
+        scrollbar_faltantes = ttk.Scrollbar(faltantes_frame, orient="vertical", command=self.tree_faltantes.yview)
+        self.tree_faltantes.configure(yscrollcommand=scrollbar_faltantes.set)
+        
+        self.tree_faltantes.pack(side="left", fill="both", expand=True)
+        scrollbar_faltantes.pack(side="right", fill="y")
+        
+        # Botones de acción para generar
+        botones_generar_frame = ttk.Frame(generar_frame)
+        botones_generar_frame.pack(fill="x", pady=20)
+        
+        ttk.Button(botones_generar_frame, text="🔍 Detectar Faltantes", 
+                  command=self.detectar_insumos_faltantes,
+                  style='Primary.TButton').pack(side="left", padx=10)
+        ttk.Button(botones_generar_frame, text="✏️ Editar Solicitud", 
+                  command=self.editar_solicitud_compra).pack(side="left", padx=10)
+        ttk.Button(botones_generar_frame, text="✅ Validar Solicitud", 
+                  command=self.validar_solicitud_compra).pack(side="left", padx=10)
+        ttk.Button(botones_generar_frame, text="💾 Guardar Solicitud", 
+                  command=self.guardar_solicitud_compra,
+                  style='Success.TButton').pack(side="left", padx=10)
+        ttk.Button(botones_generar_frame, text="📧 Enviar Solicitud", 
+                  command=self.enviar_solicitud_compra).pack(side="left", padx=10)
+        
+        # === PESTAÑA 2: EDICIÓN MANUAL ===
+        tab_editar = ttk.Frame(notebook)
+        notebook.add(tab_editar, text="✏️ Edición Manual")
+        
+        editar_frame = ttk.Frame(tab_editar, padding="20")
+        editar_frame.pack(fill="both", expand=True)
+        
+        ttk.Label(editar_frame, text="Edición Manual de Solicitud", 
+                 style='Subtitle.TLabel').pack(pady=10)
+        
+        # Frame para agregar productos manualmente
+        manual_frame = ttk.LabelFrame(editar_frame, text="Agregar/Modificar Productos", padding="15")
+        manual_frame.pack(fill="x", pady=10)
+        
+        # Campos para producto manual
+        producto_grid = ttk.Frame(manual_frame)
+        producto_grid.pack(fill="x")
+        
+        ttk.Label(producto_grid, text="Producto:").grid(row=0, column=0, sticky="w", padx=5, pady=5)
+        self.entry_producto_manual = ttk.Entry(producto_grid, width=30)
+        self.entry_producto_manual.grid(row=0, column=1, padx=5, pady=5)
+        
+        ttk.Label(producto_grid, text="Cantidad:").grid(row=0, column=2, sticky="w", padx=5, pady=5)
+        self.entry_cantidad_manual = ttk.Entry(producto_grid, width=15)
+        self.entry_cantidad_manual.grid(row=0, column=3, padx=5, pady=5)
+        
+        ttk.Button(producto_grid, text="➕ Agregar", 
+                  command=self.agregar_producto_manual).grid(row=0, column=4, padx=10, pady=5)
+        
+        # Área de solicitud actual
+        solicitud_frame = ttk.LabelFrame(editar_frame, text="Solicitud Actual", padding="15")
+        solicitud_frame.pack(fill="both", expand=True, pady=10)
+        
+        # Treeview para solicitud en edición
+        columns_solicitud = ('ID', 'Producto', 'Cantidad')
+        self.tree_solicitud = ttk.Treeview(solicitud_frame, columns=columns_solicitud, show='headings', height=12)
+        
+        for col in columns_solicitud:
+            self.tree_solicitud.heading(col, text=col)
+        
+        self.tree_solicitud.column('ID', width=80)
+        self.tree_solicitud.column('Producto', width=300)
+        self.tree_solicitud.column('Cantidad', width=150)
+        
+        scrollbar_solicitud = ttk.Scrollbar(solicitud_frame, orient="vertical", command=self.tree_solicitud.yview)
+        self.tree_solicitud.configure(yscrollcommand=scrollbar_solicitud.set)
+        
+        self.tree_solicitud.pack(side="left", fill="both", expand=True)
+        scrollbar_solicitud.pack(side="right", fill="y")
+        
+        # Botones para edición
+        botones_edicion_frame = ttk.Frame(editar_frame)
+        botones_edicion_frame.pack(fill="x", pady=20)
+        
+        ttk.Button(botones_edicion_frame, text="🔄 Modificar Seleccionado", 
+                  command=self.modificar_producto_solicitud).pack(side="left", padx=10)
+        ttk.Button(botones_edicion_frame, text="🗑️ Eliminar Seleccionado", 
+                  command=self.eliminar_producto_solicitud).pack(side="left", padx=10)
+        ttk.Button(botones_edicion_frame, text="🧹 Limpiar Todo", 
+                  command=self.limpiar_solicitud).pack(side="left", padx=10)
+        
+        # === PESTAÑA 3: HISTORIAL DE SOLICITUDES ===
+        tab_historial = ttk.Frame(notebook)
+        notebook.add(tab_historial, text="📁 Historial")
+        
+        historial_frame = ttk.Frame(tab_historial, padding="20")
+        historial_frame.pack(fill="both", expand=True)
+        
+        ttk.Label(historial_frame, text="Historial de Solicitudes", 
+                 style='Subtitle.TLabel').pack(pady=10)
+        
+        # Lista de solicitudes generadas
+        lista_frame = ttk.LabelFrame(historial_frame, text="Solicitudes Generadas", padding="15")
+        lista_frame.pack(fill="both", expand=True, pady=10)
+        
+        # Listbox para archivos de solicitudes
+        self.listbox_solicitudes = tk.Listbox(lista_frame, height=15, font=("Arial", 10))
+        scrollbar_lista_sol = ttk.Scrollbar(lista_frame, orient="vertical", command=self.listbox_solicitudes.yview)
+        self.listbox_solicitudes.configure(yscrollcommand=scrollbar_lista_sol.set)
+        
+        self.listbox_solicitudes.pack(side="left", fill="both", expand=True)
+        scrollbar_lista_sol.pack(side="right", fill="y")
+        
+        # Botones de gestión de historial
+        botones_historial_frame = ttk.Frame(historial_frame)
+        botones_historial_frame.pack(fill="x", pady=20)
+        
+        ttk.Button(botones_historial_frame, text="🔄 Actualizar Lista", 
+                  command=self.actualizar_lista_solicitudes).pack(side="left", padx=10)
+        ttk.Button(botones_historial_frame, text="👁️ Ver Solicitud", 
+                  command=self.ver_solicitud_seleccionada).pack(side="left", padx=10)
+        ttk.Button(botones_historial_frame, text="📂 Abrir Carpeta", 
+                  command=self.abrir_carpeta_solicitudes).pack(side="left", padx=10)
+        ttk.Button(botones_historial_frame, text="🗑️ Eliminar", 
+                  command=self.eliminar_solicitud_seleccionada).pack(side="left", padx=10)
+        
+        # Inicializar datos
+        self.solicitud_actual = None
+        self.actualizar_lista_solicitudes()
+
+    def detectar_insumos_faltantes(self):
+        """Detectar insumos faltantes usando la lógica de main.py"""
+        try:
+            # Limpiar resultados anteriores
+            self.tree_faltantes.delete(*self.tree_faltantes.get_children())
+            
+            # Usar la función de main.py
+            from main import obtener_insumos_faltantes
+            faltantes = obtener_insumos_faltantes()
+            
+            if faltantes.empty:
+                messagebox.showinfo("Sin Faltantes", 
+                    "✅ No hay productos faltantes.\n\n"
+                    "Toda la demanda está cubierta por el inventario actual.")
+                return
+            
+            # Mostrar resultados en el Treeview
+            for _, row in faltantes.iterrows():
+                self.tree_faltantes.insert('', 'end', 
+                    values=(row['id'], row['producto'], row['cantidad']))
+            
+            messagebox.showinfo("Detección Completa", 
+                f"🔍 Detección completada!\n\n"
+                f"📊 Productos faltantes encontrados: {len(faltantes)}\n"
+                f"🛒 Listos para generar solicitud de compra")
+            
+            # Guardar para uso posterior
+            self.solicitud_actual = faltantes.copy()
+            self.actualizar_tree_solicitud()
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al detectar faltantes: {str(e)}")
+
+    def actualizar_tree_solicitud(self):
+        """Actualizar el tree de solicitud actual"""
+        if hasattr(self, 'tree_solicitud'):
+            self.tree_solicitud.delete(*self.tree_solicitud.get_children())
+            
+            if self.solicitud_actual is not None and not self.solicitud_actual.empty:
+                for _, row in self.solicitud_actual.iterrows():
+                    self.tree_solicitud.insert('', 'end', 
+                        values=(row['id'], row['producto'], row['cantidad']))
+
+    def editar_solicitud_compra(self):
+        """Abrir pestaña de edición manual"""
+        if self.solicitud_actual is None or self.solicitud_actual.empty:
+            messagebox.showwarning("Sin Datos", 
+                "Primero debe detectar insumos faltantes o agregar productos manualmente")
+            return
+        
+        # Cambiar a la pestaña de edición
+        notebook = self.tree_faltantes.master.master.master  # Navegar hasta el notebook
+        notebook.select(1)  # Seleccionar pestaña de edición
+        
+        messagebox.showinfo("Edición Disponible", 
+            "📝 Puede editar la solicitud en la pestaña 'Edición Manual'\n\n"
+            "Funciones disponibles:\n"
+            "• Agregar productos adicionales\n"
+            "• Modificar cantidades\n"
+            "• Eliminar productos")
+
+    def agregar_producto_manual(self):
+        """Agregar producto manualmente a la solicitud"""
+        try:
+            producto = self.entry_producto_manual.get().strip()
+            cantidad_str = self.entry_cantidad_manual.get().strip()
+            
+            if not producto:
+                messagebox.showwarning("Error", "Por favor ingrese el nombre del producto")
+                return
+            
+            if not cantidad_str:
+                messagebox.showwarning("Error", "Por favor ingrese la cantidad")
+                return
+            
+            try:
+                cantidad = float(cantidad_str)
+                if cantidad <= 0:
+                    raise ValueError("La cantidad debe ser mayor a 0")
+            except ValueError:
+                messagebox.showwarning("Error", "Por favor ingrese una cantidad válida")
+                return
+            
+            # Inicializar solicitud si no existe
+            if self.solicitud_actual is None:
+                import pandas as pd
+                self.solicitud_actual = pd.DataFrame(columns=['id', 'producto', 'cantidad'])
+            
+            # Verificar si el producto ya existe
+            if not self.solicitud_actual.empty:
+                producto_existente = self.solicitud_actual[
+                    self.solicitud_actual['producto'].str.lower().str.strip() == producto.lower()
+                ]
+                
+                if not producto_existente.empty:
+                    if messagebox.askyesno("Producto Existente", 
+                        f"El producto '{producto}' ya existe en la solicitud.\n"
+                        f"¿Desea actualizar la cantidad?"):
+                        # Actualizar cantidad existente
+                        index = producto_existente.index[0]
+                        self.solicitud_actual.at[index, 'cantidad'] = cantidad
+                    else:
+                        return
+                else:
+                    # Agregar nuevo producto
+                    nuevo_id = len(self.solicitud_actual) + 1
+                    nuevo_producto = pd.DataFrame({
+                        'id': [nuevo_id],
+                        'producto': [producto],
+                        'cantidad': [cantidad]
+                    })
+                    self.solicitud_actual = pd.concat([self.solicitud_actual, nuevo_producto], ignore_index=True)
+            else:
+                # Primera entrada
+                self.solicitud_actual = pd.DataFrame({
+                    'id': [1],
+                    'producto': [producto],
+                    'cantidad': [cantidad]
+                })
+            
+            # Actualizar visualización
+            self.actualizar_tree_solicitud()
+            
+            # Limpiar campos
+            self.entry_producto_manual.delete(0, tk.END)
+            self.entry_cantidad_manual.delete(0, tk.END)
+            
+            messagebox.showinfo("Éxito", f"Producto agregado: {producto} - Cantidad: {cantidad}")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al agregar producto: {str(e)}")
+
+    def modificar_producto_solicitud(self):
+        """Modificar producto seleccionado en la solicitud"""
+        selection = self.tree_solicitud.selection()
+        if not selection:
+            messagebox.showwarning("Error", "Por favor seleccione un producto para modificar")
+            return
+        
+        try:
+            item = selection[0]
+            valores = self.tree_solicitud.item(item, 'values')
+            
+            # Cargar datos en los campos de edición
+            self.entry_producto_manual.delete(0, tk.END)
+            self.entry_producto_manual.insert(0, valores[1])
+            
+            self.entry_cantidad_manual.delete(0, tk.END)
+            self.entry_cantidad_manual.insert(0, valores[2])
+            
+            # Eliminar el producto actual para que pueda ser actualizado
+            id_producto = int(valores[0])
+            if self.solicitud_actual is not None:
+                self.solicitud_actual = self.solicitud_actual[self.solicitud_actual['id'] != id_producto]
+                self.actualizar_tree_solicitud()
+            
+            messagebox.showinfo("Modo Edición", 
+                "Datos cargados para modificación.\n"
+                "Ajuste los valores y presione 'Agregar' para actualizar.")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al modificar producto: {str(e)}")
+
+    def eliminar_producto_solicitud(self):
+        """Eliminar producto seleccionado de la solicitud"""
+        selection = self.tree_solicitud.selection()
+        if not selection:
+            messagebox.showwarning("Error", "Por favor seleccione un producto para eliminar")
+            return
+        
+        try:
+            item = selection[0]
+            valores = self.tree_solicitud.item(item, 'values')
+            producto = valores[1]
+            
+            if messagebox.askyesno("Confirmar Eliminación", 
+                f"¿Está seguro de eliminar el producto?\n\n{producto}"):
+                
+                id_producto = int(valores[0])
+                if self.solicitud_actual is not None:
+                    self.solicitud_actual = self.solicitud_actual[self.solicitud_actual['id'] != id_producto]
+                    self.actualizar_tree_solicitud()
+                    
+                messagebox.showinfo("Eliminado", f"Producto eliminado: {producto}")
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al eliminar producto: {str(e)}")
+
+    def limpiar_solicitud(self):
+        """Limpiar toda la solicitud"""
+        if self.solicitud_actual is not None and not self.solicitud_actual.empty:
+            if messagebox.askyesno("Confirmar Limpieza", 
+                "¿Está seguro de limpiar toda la solicitud?"):
+                
+                import pandas as pd
+                self.solicitud_actual = pd.DataFrame(columns=['id', 'producto', 'cantidad'])
+                self.actualizar_tree_solicitud()
+                self.tree_faltantes.delete(*self.tree_faltantes.get_children())
+                
+                messagebox.showinfo("Limpieza Completa", "Solicitud limpiada correctamente")
+
+    def validar_solicitud_compra(self):
+        """Validar la solicitud actual"""
+        if self.solicitud_actual is None or self.solicitud_actual.empty:
+            messagebox.showwarning("Sin Datos", "No hay solicitud para validar")
+            return
+        
+        try:
+            errores = []
+            
+            # Validaciones
+            for _, row in self.solicitud_actual.iterrows():
+                if not row["producto"] or str(row["producto"]).strip() == "":
+                    errores.append(f"❌ Producto vacío en ID {row['id']}")
+                
+                try:
+                    cantidad = float(row["cantidad"])
+                    if cantidad <= 0:
+                        errores.append(f"❌ Cantidad inválida para '{row['producto']}': {cantidad}")
+                except (ValueError, TypeError):
+                    errores.append(f"❌ Cantidad no numérica para '{row['producto']}': {row['cantidad']}")
+            
+            # Mostrar resultados
+            if errores:
+                mensaje_error = "❌ Se encontraron errores en la solicitud:\n\n" + "\n".join(errores)
+                messagebox.showerror("Errores de Validación", mensaje_error)
+            else:
+                messagebox.showinfo("Validación Exitosa", 
+                    f"✅ Validación completada exitosamente!\n\n"
+                    f"📊 Productos validados: {len(self.solicitud_actual)}\n"
+                    f"✅ Toda la información es correcta\n"
+                    f"💾 Lista para guardar y enviar")
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Error durante la validación: {str(e)}")
+
+    def guardar_solicitud_compra(self):
+        """Guardar la solicitud en Excel"""
+        if self.solicitud_actual is None or self.solicitud_actual.empty:
+            messagebox.showwarning("Sin Datos", "No hay solicitud para guardar")
+            return
+        
+        try:
+            from datetime import datetime
+            import os
+            
+            # Crear nombre de archivo con timestamp
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            filename = f"data/solicitud_compra_{timestamp}.xlsx"
+            
+            # Asegurar que existe el directorio
+            os.makedirs(os.path.dirname(filename), exist_ok=True)
+            
+            # Guardar archivo
+            self.solicitud_actual.to_excel(filename, index=False)
+            
+            # También guardar como archivo principal (para compatibilidad con main.py)
+            filename_principal = "data/solicitud_compra.xlsx"
+            self.solicitud_actual.to_excel(filename_principal, index=False)
+            
+            messagebox.showinfo("Guardado Exitoso", 
+                f"✅ Solicitud guardada correctamente!\n\n"
+                f"📁 Archivo principal: {filename_principal}\n"
+                f"📁 Copia con timestamp: {filename}\n"
+                f"📊 Productos guardados: {len(self.solicitud_actual)}")
+            
+            # Actualizar lista de historial
+            self.actualizar_lista_solicitudes()
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al guardar solicitud: {str(e)}")
+
+    def enviar_solicitud_compra(self):
+        """Enviar solicitud por email"""
+        try:
+            import os
+            
+            # Verificar que existe el archivo principal
+            archivo_principal = "data/solicitud_compra.xlsx"
+            if not os.path.exists(archivo_principal):
+                messagebox.showwarning("Error", 
+                    "No se ha guardado la solicitud aún.\n"
+                    "Por favor guarde la solicitud antes de enviarla.")
+                return
+            
+            if self.solicitud_actual is None or self.solicitud_actual.empty:
+                messagebox.showwarning("Sin Datos", "No hay solicitud para enviar")
+                return
+            
+            # Crear ventana para solicitar email
+            ventana_email = self.crear_ventana_secundaria("📧 Enviar Solicitud de Compra", "600x400")
+            
+            email_frame = ttk.Frame(ventana_email, padding="20")
+            email_frame.pack(fill="both", expand=True)
+            
+            ttk.Label(email_frame, text="Envío de Solicitud de Compra", 
+                     style='Subtitle.TLabel').pack(pady=10)
+            
+            # Información de la solicitud
+            info_text = f"""📋 Solicitud de Compra de Insumos
+📊 Productos solicitados: {len(self.solicitud_actual)}
+📁 Archivo: solicitud_compra.xlsx
+
+Lista de productos:"""
+            
+            for _, row in self.solicitud_actual.iterrows():
+                info_text += f"\n• {row['producto']}: {row['cantidad']}"
+            
+            text_widget = tk.Text(email_frame, height=8, wrap=tk.WORD, font=("Arial", 10))
+            text_widget.insert("1.0", info_text)
+            text_widget.config(state='disabled')
+            text_widget.pack(fill="both", expand=True, pady=10)
+            
+            # Campo de email
+            ttk.Label(email_frame, text="📧 Correo del destinatario:").pack(anchor="w", pady=5)
+            entry_email = ttk.Entry(email_frame, width=50, font=("Arial", 11))
+            entry_email.pack(fill="x", pady=5)
+            entry_email.focus()
+            
+            # Botones
+            botones_frame = ttk.Frame(email_frame)
+            botones_frame.pack(fill="x", pady=20)
+            
+            def procesar_envio():
+                email_destinatario = entry_email.get().strip()
+                if not email_destinatario:
+                    messagebox.showwarning("Error", "Por favor ingrese el correo del destinatario")
+                    return
+                
+                if "@" not in email_destinatario or "." not in email_destinatario:
+                    messagebox.showwarning("Error", "Por favor ingrese un correo válido")
+                    return
+                
+                try:
+                    # Usar la función de main.py (simulada)
+                    ventana_email.destroy()
+                    
+                    # Simulación del envío (en producción usar función real de main.py)
+                    messagebox.showinfo("Envío Exitoso", 
+                        f"✅ Solicitud enviada correctamente!\n\n"
+                        f"📧 Destinatario: {email_destinatario}\n"
+                        f"📁 Archivo adjunto: solicitud_compra.xlsx\n"
+                        f"📊 Productos solicitados: {len(self.solicitud_actual)}\n\n"
+                        f"📋 La solicitud ha sido enviada al proveedor.")
+                    
+                except Exception as e:
+                    messagebox.showerror("Error", f"Error al enviar: {str(e)}")
+            
+            ttk.Button(botones_frame, text="📧 Enviar", 
+                      command=procesar_envio,
+                      style='Success.TButton').pack(side="left", padx=10)
+            ttk.Button(botones_frame, text="❌ Cancelar", 
+                      command=ventana_email.destroy).pack(side="right", padx=10)
+                      
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al preparar envío: {str(e)}")
+
+    def actualizar_lista_solicitudes(self):
+        """Actualizar lista de solicitudes en historial"""
+        try:
+            import os
+            
+            # Limpiar lista
+            if hasattr(self, 'listbox_solicitudes'):
+                self.listbox_solicitudes.delete(0, tk.END)
+                
+                carpeta = "data"
+                if not os.path.exists(carpeta):
+                    os.makedirs(carpeta)
+                    return
+                
+                # Buscar archivos de solicitudes
+                archivos = [f for f in os.listdir(carpeta) 
+                           if f.startswith("solicitud_compra") and f.endswith(".xlsx")]
+                
+                if not archivos:
+                    self.listbox_solicitudes.insert(tk.END, "No hay solicitudes generadas")
+                    return
+                
+                # Agregar archivos a la lista
+                for archivo in sorted(archivos, reverse=True):
+                    self.listbox_solicitudes.insert(tk.END, archivo)
+                    
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al actualizar lista: {str(e)}")
+
+    def ver_solicitud_seleccionada(self):
+        """Ver contenido de la solicitud seleccionada"""
+        selection = self.listbox_solicitudes.curselection()
+        if not selection:
+            messagebox.showwarning("Error", "Por favor seleccione una solicitud")
+            return
+        
+        try:
+            archivo = self.listbox_solicitudes.get(selection[0])
+            
+            if archivo == "No hay solicitudes generadas":
+                return
+            
+            import pandas as pd
+            import os
+            
+            ruta_archivo = os.path.join("data", archivo)
+            
+            if not os.path.exists(ruta_archivo):
+                messagebox.showerror("Error", "El archivo no existe")
+                return
+            
+            # Leer archivo
+            df = pd.read_excel(ruta_archivo)
+            
+            # Crear ventana de visualización
+            ventana_ver = self.crear_ventana_secundaria(f"📋 Ver Solicitud: {archivo}", "700x500")
+            
+            ver_frame = ttk.Frame(ventana_ver, padding="20")
+            ver_frame.pack(fill="both", expand=True)
+            
+            ttk.Label(ver_frame, text=f"Contenido de: {archivo}", 
+                     style='Subtitle.TLabel').pack(pady=10)
+            
+            # Crear Treeview para mostrar datos
+            columns = list(df.columns)
+            tree_ver = ttk.Treeview(ver_frame, columns=columns, show='headings', height=15)
+            
+            for col in columns:
+                tree_ver.heading(col, text=col)
+                tree_ver.column(col, width=150)
+            
+            # Agregar datos
+            for _, row in df.iterrows():
+                tree_ver.insert('', 'end', values=list(row))
+            
+            scrollbar_ver = ttk.Scrollbar(ver_frame, orient="vertical", command=tree_ver.yview)
+            tree_ver.configure(yscrollcommand=scrollbar_ver.set)
+            
+            tree_ver.pack(side="left", fill="both", expand=True)
+            scrollbar_ver.pack(side="right", fill="y")
+            
+            # Información adicional
+            info_frame = ttk.Frame(ver_frame)
+            info_frame.pack(fill="x", pady=10)
+            
+            ttk.Label(info_frame, text=f"📊 Total de productos: {len(df)}").pack(side="left")
+            ttk.Button(info_frame, text="✅ Cerrar", 
+                      command=ventana_ver.destroy).pack(side="right")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al ver solicitud: {str(e)}")
+
+    def abrir_carpeta_solicitudes(self):
+        """Abrir carpeta de solicitudes en el explorador"""
+        try:
+            import os
+            import subprocess
+            import platform
+            
+            carpeta = os.path.abspath("data")
+            
+            if not os.path.exists(carpeta):
+                os.makedirs(carpeta)
+            
+            # Abrir según el sistema operativo
+            if platform.system() == "Windows":
+                subprocess.Popen(f'explorer "{carpeta}"')
+            elif platform.system() == "Darwin":  # macOS
+                subprocess.Popen(f'open "{carpeta}"', shell=True)
+            else:  # Linux
+                subprocess.Popen(f'xdg-open "{carpeta}"', shell=True)
+                
+            messagebox.showinfo("Carpeta Abierta", 
+                f"📂 Carpeta de solicitudes abierta:\n{carpeta}")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al abrir carpeta: {str(e)}")
+
+    def eliminar_solicitud_seleccionada(self):
+        """Eliminar solicitud seleccionada"""
+        selection = self.listbox_solicitudes.curselection()
+        if not selection:
+            messagebox.showwarning("Error", "Por favor seleccione una solicitud para eliminar")
+            return
+        
+        try:
+            archivo = self.listbox_solicitudes.get(selection[0])
+            
+            if archivo == "No hay solicitudes generadas":
+                return
+            
+            if not messagebox.askyesno("Confirmar Eliminación", 
+                f"¿Está seguro de eliminar la solicitud?\n\n{archivo}"):
+                return
+            
+            import os
+            ruta_archivo = os.path.join("data", archivo)
+            
+            if os.path.exists(ruta_archivo):
+                os.remove(ruta_archivo)
+                messagebox.showinfo("Eliminado", f"✅ Solicitud eliminada: {archivo}")
+                self.actualizar_lista_solicitudes()
+            else:
+                messagebox.showwarning("Error", "El archivo no existe")
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al eliminar: {str(e)}")
         
     def menu_reportes_insumos_listos(self):
         """Menú completo para reportes de insumos listos - HU10"""

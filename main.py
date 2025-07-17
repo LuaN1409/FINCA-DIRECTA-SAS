@@ -650,7 +650,7 @@ def obtener_insumos_faltantes():
     dem["producto_norm"] = dem["producto"].str.lower().str.strip()
     
     merged = pd.merge(dem, inv, on="producto_norm", how="left", suffixes=("_dem", "_inv"))
-    faltantes = merged[(merged["cantidad"].isna()) | (merged["cantidad"] < merged["total_cantidad"])]
+    faltantes = merged[(merged["cantidad"].isna()) | (merged["cantidad"] < merged["total_cantidad"])].copy()
 
     faltantes["cantidad"] = faltantes.apply(
         lambda row: row["total_cantidad"] if pd.isna(row["cantidad"]) else row["total_cantidad"] - row["cantidad"],
