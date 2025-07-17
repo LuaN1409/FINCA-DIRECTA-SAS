@@ -2385,6 +2385,10 @@ Este módulo analiza los productos faltantes y permite gestionar la solicitud de
         ttk.Button(botones_frame, text="📋 Ver Recepciones", 
                   command=self.ver_recepciones_hu5).pack(side="left", padx=10)
         
+        ttk.Button(botones_frame, text="📦 Verificar Inventario", 
+                  command=self.mostrar_inventario_actual,
+                  style='Info.TButton').pack(side="left", padx=10)
+        
         ttk.Button(botones_frame, text="🧹 Limpiar Todo", 
                   command=self.limpiar_campos_recepcion).pack(side="left", padx=10)
 
@@ -2487,7 +2491,7 @@ Este módulo analiza los productos faltantes y permite gestionar la solicitud de
             messagebox.showerror("Error", f"Error al eliminar producto: {str(e)}")
 
     def guardar_recepcion_insumos(self):
-        """Guardar la recepción de insumos usando funciones de main.py"""
+        """Guardar la recepción de insumos y actualizar inventario para productos conformes"""
         try:
             proveedor = self.entry_proveedor.get().strip()
             fecha = self.entry_fecha_recepcion.get().strip()
@@ -2503,6 +2507,7 @@ Este módulo analiza los productos faltantes y permite gestionar la solicitud de
             
             from datetime import datetime
             from main import guardar_excel, cargar_excel, entregas, detalle_entregas, ingresar_inventario, validar_campos
+            import pandas as pd
             
             # Validar fecha
             try:
@@ -2524,18 +2529,22 @@ Este módulo analiza los productos faltantes y permite gestionar la solicitud de
             nuevos_detalles = []
             
             for producto in self.productos_recibidos:
-                nuevo_detalle = [nuevo_id, producto['producto'], producto['cantidad'], producto['estado']]
+                # Cambiar el nombre de la columna para que coincida con el formato esperado
+                nuevo_detalle = [nuevo_id, producto['producto'], producto['cantidad'], producto['estado'] == "Conforme"]
                 nuevos_detalles.append(nuevo_detalle)
             
-            # Asegurar que las columnas existan
-            if df_detalle.empty:
-                columnas = ["entrega_id", "producto", "cantidad", "estado_conformidad"]
-            else:
-                columnas = df_detalle.columns.tolist()
-                if "estado_conformidad" not in columnas:
-                    columnas.append("estado_conformidad")
+            # Definir columnas consistentes
+            columnas_esperadas = ["id_entrega", "producto", "cantidad", "conforme"]
             
-            df_nuevos = pd.DataFrame(nuevos_detalles, columns=columnas)
+            if df_detalle.empty:
+                df_detalle = pd.DataFrame(columns=columnas_esperadas)
+            else:
+                # Asegurar que las columnas necesarias existan
+                for col in columnas_esperadas:
+                    if col not in df_detalle.columns:
+                        df_detalle[col] = None
+            
+            df_nuevos = pd.DataFrame(nuevos_detalles, columns=columnas_esperadas)
             df_detalle = pd.concat([df_detalle, df_nuevos], ignore_index=True)
             guardar_excel(df_detalle, detalle_entregas)
             
@@ -2543,34 +2552,46 @@ Este módulo analiza los productos faltantes y permite gestionar la solicitud de
             productos_conformes = [p for p in self.productos_recibidos if p['estado'] == "Conforme"]
             productos_no_conformes = [p for p in self.productos_recibidos if p['estado'] == "No conforme"]
             
-            # Validar y agregar al inventario solo productos conformes
+            # ACTUALIZAR INVENTARIO - Solo productos conformes
             if productos_conformes:
                 productos_para_inventario = [(p['producto'], p['cantidad']) for p in productos_conformes]
                 
+                # Validar campos antes de agregar al inventario
                 if validar_campos(productos_para_inventario):
+                    # ESTE ES EL PUNTO CLAVE: Agregar al inventario
                     ingresar_inventario(productos_para_inventario)
+                    print(f"✅ Se agregaron {len(productos_conformes)} productos conformes al inventario")
+                    
+                    # Verificar que el inventario se actualizó correctamente
+                    verificacion = self.verificar_actualizacion_inventario(productos_para_inventario)
+                    print(verificacion)
                 else:
                     messagebox.showwarning("Advertencia", "Algunos productos no pudieron ser validados")
             
-            # Mostrar resumen
+            # Mostrar resumen detallado
             resumen = f"✅ Recepción registrada exitosamente!\n\n"
             resumen += f"🆔 ID de entrega: {nuevo_id}\n"
             resumen += f"🏢 Proveedor: {proveedor}\n"
             resumen += f"📅 Fecha: {fecha}\n"
-            resumen += f"📦 Total productos: {len(self.productos_recibidos)}\n"
+            resumen += f"📦 Total productos recibidos: {len(self.productos_recibidos)}\n"
             resumen += f"✅ Productos conformes: {len(productos_conformes)}\n"
             resumen += f"⚠️ Productos no conformes: {len(productos_no_conformes)}\n\n"
             
             if productos_conformes:
-                resumen += "✅ PRODUCTOS CONFORMES (agregados al inventario):\n"
+                resumen += "✅ PRODUCTOS CONFORMES (AGREGADOS AL INVENTARIO):\n"
                 for p in productos_conformes:
                     resumen += f"   • {p['producto']}: {p['cantidad']} unidades\n"
-                resumen += "\n"
+                resumen += "\n📋 IMPORTANTE: Estas cantidades se han SUMADO al inventario existente.\n\n"
             
             if productos_no_conformes:
                 resumen += "⚠️ PRODUCTOS NO CONFORMES (NO agregados al inventario):\n"
                 for p in productos_no_conformes:
                     resumen += f"   • {p['producto']}: {p['cantidad']} unidades\n"
+                resumen += "\n"
+            
+            resumen += "📋 NOTA: Solo los productos marcados como 'Conforme' se han agregado al inventario.\n"
+            resumen += "Los productos 'No conforme' se registraron en la recepción pero NO se sumaron al inventario.\n\n"
+            resumen += "🔍 Para verificar el inventario actualizado, use el módulo 'Consultar Inventario'."
             
             messagebox.showinfo("Recepción Completada", resumen)
             
@@ -2579,6 +2600,7 @@ Este módulo analiza los productos faltantes y permite gestionar la solicitud de
             
         except Exception as e:
             messagebox.showerror("Error", f"Error al guardar recepción: {str(e)}")
+            print(f"Error detallado: {str(e)}")  # Para debug
 
     def ver_recepciones_hu5(self):
         """Ver todas las recepciones registradas usando archivos de main.py"""
@@ -2693,11 +2715,161 @@ Este módulo analiza los productos faltantes y permite gestionar la solicitud de
 
     def limpiar_campos_recepcion(self):
         """Limpiar todos los campos del formulario de recepción"""
-        self.entry_proveedor.delete(0, tk.END)
-        self.entry_fecha_recepcion.delete(0, tk.END)
-        self.entry_numero_pedido.delete(0, tk.END)
-        self.entry_producto_nuevo.delete(0, tk.END)
-        self.entry_cantidad_nueva.delete(0, tk.END)
+        try:
+            # Limpiar campos de información
+            self.entry_proveedor.delete(0, tk.END)
+            self.entry_fecha_recepcion.delete(0, tk.END)
+            self.entry_numero_pedido.delete(0, tk.END)
+            
+            # Limpiar campos de productos
+            self.entry_producto_nuevo.delete(0, tk.END)
+            self.entry_cantidad_nueva.delete(0, tk.END)
+            self.combo_estado_nuevo.set("Conforme")
+            
+            # Limpiar combobox de modificación
+            self.combo_estado_modificar.set("")
+            
+            # Limpiar lista de productos recibidos
+            self.productos_recibidos = []
+            
+            # Limpiar tree de productos
+            for item in self.tree_productos.get_children():
+                self.tree_productos.delete(item)
+                
+            print("✅ Formulario de recepción limpiado completamente")
+            
+        except Exception as e:
+            print(f"Error al limpiar campos: {str(e)}")
+    
+    def mostrar_inventario_actual(self):
+        """Mostrar el estado actual del inventario"""
+        try:
+            from main import cargar_excel, inventario
+            
+            df_inv = cargar_excel(inventario)
+            
+            if df_inv.empty:
+                messagebox.showinfo("Inventario Vacío", "📦 El inventario está vacío. No hay productos registrados.")
+                return
+            
+            # Crear ventana para mostrar inventario
+            ventana_inventario = self.crear_ventana_secundaria("📦 Estado Actual del Inventario", "800x600")
+            
+            frame_inventario = ttk.Frame(ventana_inventario, padding="20")
+            frame_inventario.pack(fill="both", expand=True)
+            
+            ttk.Label(frame_inventario, text="Estado Actual del Inventario", 
+                     style='Subtitle.TLabel').pack(pady=10)
+            
+            # Información general
+            info_frame = ttk.LabelFrame(frame_inventario, text="Resumen General", padding="10")
+            info_frame.pack(fill="x", pady=10)
+            
+            total_productos = len(df_inv)
+            total_unidades = df_inv['cantidad'].sum() if 'cantidad' in df_inv.columns else 0
+            
+            ttk.Label(info_frame, text=f"📊 Total de productos diferentes: {total_productos}").pack(anchor="w")
+            ttk.Label(info_frame, text=f"📦 Total de unidades en inventario: {total_unidades:.0f}").pack(anchor="w")
+            
+            # Lista de productos
+            productos_frame = ttk.LabelFrame(frame_inventario, text="Lista de Productos", padding="10")
+            productos_frame.pack(fill="both", expand=True, pady=10)
+            
+            # Crear Treeview para mostrar productos
+            columns = ('Producto', 'Cantidad', 'Última Actualización')
+            tree_inv = ttk.Treeview(productos_frame, columns=columns, show='headings', height=15)
+            
+            tree_inv.heading('Producto', text='Producto')
+            tree_inv.heading('Cantidad', text='Cantidad')
+            tree_inv.heading('Última Actualización', text='Última Actualización')
+            
+            tree_inv.column('Producto', width=300)
+            tree_inv.column('Cantidad', width=120, anchor='center')
+            tree_inv.column('Última Actualización', width=180, anchor='center')
+            
+            # Llenar datos (ordenar por producto)
+            df_ordenado = df_inv.sort_values('producto') if 'producto' in df_inv.columns else df_inv
+            
+            for _, row in df_ordenado.iterrows():
+                tree_inv.insert('', 'end', values=(
+                    row.get('producto', 'N/A'),
+                    f"{row.get('cantidad', 0):.0f}",
+                    row.get('ultima_actualizacion', 'N/A')
+                ))
+            
+            scrollbar_inv = ttk.Scrollbar(productos_frame, orient="vertical", command=tree_inv.yview)
+            tree_inv.configure(yscrollcommand=scrollbar_inv.set)
+            
+            tree_inv.pack(side="left", fill="both", expand=True)
+            scrollbar_inv.pack(side="right", fill="y")
+            
+            # Botones de acción
+            botones_frame = ttk.Frame(frame_inventario)
+            botones_frame.pack(fill="x", pady=10)
+            
+            ttk.Button(botones_frame, text="🔄 Actualizar", 
+                      command=lambda: [ventana_inventario.destroy(), self.mostrar_inventario_actual()],
+                      style='Primary.TButton').pack(side="left", padx=10)
+            
+            ttk.Button(botones_frame, text="📤 Exportar a Excel", 
+                      command=lambda: self.exportar_inventario_excel(df_inv),
+                      style='Secondary.TButton').pack(side="left", padx=10)
+            
+            ttk.Button(botones_frame, text="❌ Cerrar", 
+                      command=ventana_inventario.destroy,
+                      style='Danger.TButton').pack(side="right", padx=10)
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al mostrar inventario: {str(e)}")
+    
+    def exportar_inventario_excel(self, df_inventario):
+        """Exportar inventario actual a Excel"""
+        try:
+            from datetime import datetime
+            import os
+            
+            fecha_actual = datetime.now().strftime('%Y%m%d_%H%M%S')
+            nombre_archivo = f"inventario_exportado_{fecha_actual}.xlsx"
+            ruta_archivo = os.path.join("data", nombre_archivo)
+            
+            df_inventario.to_excel(ruta_archivo, index=False)
+            
+            messagebox.showinfo("Exportación Exitosa", 
+                f"✅ Inventario exportado exitosamente!\n\n"
+                f"📁 Archivo: {nombre_archivo}\n"
+                f"📂 Ubicación: carpeta 'data'\n"
+                f"📊 {len(df_inventario)} productos exportados")
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al exportar inventario: {str(e)}")
+            
+    def verificar_actualizacion_inventario(self, productos_agregados):
+        """Verificar que el inventario se haya actualizado correctamente"""
+        try:
+            from main import cargar_excel, inventario
+            
+            df_inv = cargar_excel(inventario)
+            if df_inv.empty:
+                return "⚠️ El archivo de inventario está vacío"
+            
+            verificacion = "🔍 VERIFICACIÓN DE ACTUALIZACIÓN DEL INVENTARIO:\n\n"
+            
+            for producto, cantidad in productos_agregados:
+                producto_norm = producto.lower().strip()
+                df_inv['producto_norm'] = df_inv['producto'].astype(str).str.strip().str.lower()
+                producto_en_inventario = df_inv[df_inv['producto_norm'] == producto_norm]
+                
+                if not producto_en_inventario.empty:
+                    cantidad_actual = producto_en_inventario['cantidad'].iloc[0]
+                    fecha_actualizacion = producto_en_inventario['ultima_actualizacion'].iloc[0]
+                    verificacion += f"✅ {producto}: {cantidad_actual} unidades (actualizado: {fecha_actualizacion})\n"
+                else:
+                    verificacion += f"❌ {producto}: No encontrado en inventario\n"
+            
+            return verificacion
+            
+        except Exception as e:
+            return f"❌ Error al verificar inventario: {str(e)}"
         self.combo_estado_nuevo.set("Conforme")
         self.combo_estado_modificar.set("")
         
