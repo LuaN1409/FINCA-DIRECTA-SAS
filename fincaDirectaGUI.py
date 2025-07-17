@@ -3209,8 +3209,8 @@ Fecha de envío: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
             
             mensaje.set_content(contenido_completo)
             
-            # Por ahora, mostrar simulación del envío
-            self.simular_envio_email(email_destinatario, asunto, contenido_completo, ventana_email)
+            # Envío real del email
+            self.enviar_email_real(email_destinatario, asunto, contenido_completo, ventana_email)
             
         except Exception as e:
             messagebox.showerror("Error", f"Error al procesar envío: {str(e)}")
@@ -3248,7 +3248,73 @@ Historia de Usuario: HU6 - Envío de reportes por email
         
         return contenido
 
-    def simular_envio_email(self, destinatario, asunto, contenido, ventana_email):
+    def enviar_email_real(self, destinatario, asunto, contenido, ventana_email):
+        """Enviar email real usando SMTP"""
+        try:
+            import smtplib
+            from email.message import EmailMessage
+            
+            # Configuración de email (igual que en main.py)
+            email_remitente = "elcoordinadordecompras@gmail.com"
+            contraseña = "iocsdhwphxxhbzzp"
+            
+            # Crear mensaje
+            mensaje = EmailMessage()
+            mensaje["Subject"] = asunto
+            mensaje["From"] = email_remitente
+            mensaje["To"] = destinatario
+            mensaje.set_content(contenido)
+            
+            # Enviar email
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+                smtp.login(email_remitente, contraseña)
+                smtp.send_message(mensaje)
+            
+            # Cerrar ventana y mostrar éxito
+            ventana_email.destroy()
+            
+            # Guardar log del envío
+            try:
+                log_entry = {
+                    'fecha_envio': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'destinatario': destinatario,
+                    'asunto': asunto,
+                    'insumos_reportados': len(self.insumos_defectuosos),
+                    'estado': 'Enviado exitosamente'
+                }
+                
+                import pandas as pd
+                import os
+                
+                log_path = os.path.join("data", "log_emails_defectuosos.xlsx")
+                
+                if os.path.exists(log_path):
+                    df_log = pd.read_excel(log_path)
+                    df_log = pd.concat([df_log, pd.DataFrame([log_entry])], ignore_index=True)
+                else:
+                    df_log = pd.DataFrame([log_entry])
+                
+                df_log.to_excel(log_path, index=False)
+                
+            except Exception as log_error:
+                print(f"Error al guardar log: {log_error}")
+            
+            messagebox.showinfo("Email Enviado", 
+                f"✅ Reporte enviado exitosamente!\n\n"
+                f"📧 Destinatario: {destinatario}\n"
+                f"📊 Insumos reportados: {len(self.insumos_defectuosos)}\n"
+                f"📅 Fecha: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+                f"El proveedor ha sido notificado de los insumos defectuosos.")
+                
+        except Exception as e:
+            messagebox.showerror("Error de Envío", 
+                f"❌ Error al enviar email:\n\n{str(e)}\n\n"
+                f"Por favor verifique:\n"
+                f"• Conexión a internet\n"
+                f"• Configuración de email\n"
+                f"• Email del destinatario")
+
+    def simular_envio_email_old(self, destinatario, asunto, contenido, ventana_email):
         """Simular el envío de email (placeholder para implementación real)"""
         # En un entorno real, aquí iría la lógica de SMTP
         resultado = messagebox.askyesno("Confirmar Envío", 
