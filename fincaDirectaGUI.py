@@ -1501,8 +1501,468 @@ PRODUCTOS RECIBIDOS:
         messagebox.showinfo("Info", "Funcionalidad de reportes de solicitudes - Por implementar")
         
     def menu_reportes_insumos_listos(self):
-        """Menú para reportes de insumos listos"""
-        messagebox.showinfo("Info", "Funcionalidad de reportes de insumos listos - Por implementar")
+        """Menú completo para reportes de insumos listos - HU10"""
+        ventana = self.crear_ventana_secundaria("🚚 Reportes de Insumos Listos - HU10", "1200x800")
+        
+        main_frame = ttk.Frame(ventana, padding="20")
+        main_frame.pack(fill="both", expand=True)
+        
+        ttk.Label(main_frame, text="Reportes de Insumos Listos para Envío", 
+                 style='Subtitle.TLabel').pack(pady=10)
+        
+        # Frame principal con notebook para pestañas
+        notebook = ttk.Notebook(main_frame)
+        notebook.pack(fill="both", expand=True, pady=10)
+        
+        # === PESTAÑA 1: GENERAR LISTA DE ENVÍO ===
+        tab_generar = ttk.Frame(notebook)
+        notebook.add(tab_generar, text="📋 Generar Lista")
+        
+        generar_frame = ttk.Frame(tab_generar, padding="20")
+        generar_frame.pack(fill="both", expand=True)
+        
+        ttk.Label(generar_frame, text="Generar Lista de Insumos Listos para Envío", 
+                 style='Subtitle.TLabel').pack(pady=10)
+        
+        # Información de la funcionalidad
+        info_frame = ttk.LabelFrame(generar_frame, text="Información", padding="15")
+        info_frame.pack(fill="x", pady=10)
+        
+        info_text = """Esta función compara la demanda de pedidos con el inventario disponible
+para identificar qué insumos están listos para envío."""
+        ttk.Label(info_frame, text=info_text, justify="left").pack(anchor="w")
+        
+        # Área de resultados
+        resultados_frame = ttk.LabelFrame(generar_frame, text="Resultados", padding="15")
+        resultados_frame.pack(fill="both", expand=True, pady=10)
+        
+        # Crear Treeview para mostrar insumos listos
+        columns = ('Producto', 'Cantidad a Enviar')
+        self.tree_insumos_listos = ttk.Treeview(resultados_frame, columns=columns, show='headings', height=15)
+        
+        self.tree_insumos_listos.heading('Producto', text='Producto')
+        self.tree_insumos_listos.heading('Cantidad a Enviar', text='Cantidad a Enviar')
+        
+        self.tree_insumos_listos.column('Producto', width=300)
+        self.tree_insumos_listos.column('Cantidad a Enviar', width=150)
+        
+        # Scrollbar para el Treeview
+        scrollbar_insumos = ttk.Scrollbar(resultados_frame, orient="vertical", command=self.tree_insumos_listos.yview)
+        self.tree_insumos_listos.configure(yscrollcommand=scrollbar_insumos.set)
+        
+        self.tree_insumos_listos.pack(side="left", fill="both", expand=True)
+        scrollbar_insumos.pack(side="right", fill="y")
+        
+        # Botones de acción para generar
+        botones_generar_frame = ttk.Frame(generar_frame)
+        botones_generar_frame.pack(fill="x", pady=20)
+        
+        ttk.Button(botones_generar_frame, text="🔄 Generar Lista", 
+                  command=self.generar_lista_insumos_listos,
+                  style='Primary.TButton').pack(side="left", padx=10)
+        ttk.Button(botones_generar_frame, text="💾 Exportar a Excel", 
+                  command=self.exportar_lista_insumos_listos,
+                  style='Success.TButton').pack(side="left", padx=10)
+        ttk.Button(botones_generar_frame, text="📧 Enviar por Email", 
+                  command=self.enviar_lista_insumos_email).pack(side="left", padx=10)
+        
+        # === PESTAÑA 2: FILTRAR REPORTES POR FECHA ===
+        tab_filtrar = ttk.Frame(notebook)
+        notebook.add(tab_filtrar, text="📅 Filtrar por Fecha")
+        
+        filtrar_frame = ttk.Frame(tab_filtrar, padding="20")
+        filtrar_frame.pack(fill="both", expand=True)
+        
+        ttk.Label(filtrar_frame, text="Filtrar Reportes por Rango de Fechas", 
+                 style='Subtitle.TLabel').pack(pady=10)
+        
+        # Frame para filtros de fecha
+        fecha_frame = ttk.LabelFrame(filtrar_frame, text="Rango de Fechas", padding="15")
+        fecha_frame.pack(fill="x", pady=10)
+        
+        # Campos de fecha
+        fecha_grid = ttk.Frame(fecha_frame)
+        fecha_grid.pack(fill="x")
+        
+        ttk.Label(fecha_grid, text="Fecha inicio (YYYY-MM-DD):").grid(row=0, column=0, sticky="w", padx=5, pady=5)
+        self.entry_fecha_inicio = ttk.Entry(fecha_grid, width=20)
+        self.entry_fecha_inicio.grid(row=0, column=1, padx=5, pady=5)
+        
+        ttk.Label(fecha_grid, text="Fecha fin (YYYY-MM-DD):").grid(row=0, column=2, sticky="w", padx=5, pady=5)
+        self.entry_fecha_fin = ttk.Entry(fecha_grid, width=20)
+        self.entry_fecha_fin.grid(row=0, column=3, padx=5, pady=5)
+        
+        ttk.Button(fecha_grid, text="🔍 Filtrar", 
+                  command=self.filtrar_reportes_por_fecha).grid(row=0, column=4, padx=10, pady=5)
+        
+        # Área de resultados filtrados
+        resultados_filtro_frame = ttk.LabelFrame(filtrar_frame, text="Reportes Encontrados", padding="15")
+        resultados_filtro_frame.pack(fill="both", expand=True, pady=10)
+        
+        # Treeview para reportes filtrados
+        columns_reportes = ('ID', 'Fecha', 'Producto', 'Cantidad', 'Estado')
+        self.tree_reportes_filtrados = ttk.Treeview(resultados_filtro_frame, columns=columns_reportes, show='headings', height=12)
+        
+        for col in columns_reportes:
+            self.tree_reportes_filtrados.heading(col, text=col)
+            self.tree_reportes_filtrados.column(col, width=120)
+        
+        scrollbar_reportes = ttk.Scrollbar(resultados_filtro_frame, orient="vertical", command=self.tree_reportes_filtrados.yview)
+        self.tree_reportes_filtrados.configure(yscrollcommand=scrollbar_reportes.set)
+        
+        self.tree_reportes_filtrados.pack(side="left", fill="both", expand=True)
+        scrollbar_reportes.pack(side="right", fill="y")
+        
+        # Botones para reportes filtrados
+        botones_filtro_frame = ttk.Frame(filtrar_frame)
+        botones_filtro_frame.pack(fill="x", pady=20)
+        
+        ttk.Button(botones_filtro_frame, text="📋 Ver Detalle", 
+                  command=self.ver_detalle_reporte_seleccionado).pack(side="left", padx=10)
+        ttk.Button(botones_filtro_frame, text="💾 Descargar Reporte", 
+                  command=self.descargar_reporte_seleccionado).pack(side="left", padx=10)
+        
+        # === PESTAÑA 3: GESTIÓN DE REPORTES ===
+        tab_gestion = ttk.Frame(notebook)
+        notebook.add(tab_gestion, text="📁 Gestión de Reportes")
+        
+        gestion_frame = ttk.Frame(tab_gestion, padding="20")
+        gestion_frame.pack(fill="both", expand=True)
+        
+        ttk.Label(gestion_frame, text="Gestión de Reportes Generados", 
+                 style='Subtitle.TLabel').pack(pady=10)
+        
+        # Lista de reportes disponibles
+        lista_frame = ttk.LabelFrame(gestion_frame, text="Reportes Disponibles", padding="15")
+        lista_frame.pack(fill="both", expand=True, pady=10)
+        
+        # Listbox para archivos de reportes
+        self.listbox_reportes = tk.Listbox(lista_frame, height=15, font=("Arial", 10))
+        scrollbar_lista = ttk.Scrollbar(lista_frame, orient="vertical", command=self.listbox_reportes.yview)
+        self.listbox_reportes.configure(yscrollcommand=scrollbar_lista.set)
+        
+        self.listbox_reportes.pack(side="left", fill="both", expand=True)
+        scrollbar_lista.pack(side="right", fill="y")
+        
+        # Botones de gestión
+        botones_gestion_frame = ttk.Frame(gestion_frame)
+        botones_gestion_frame.pack(fill="x", pady=20)
+        
+        ttk.Button(botones_gestion_frame, text="🔄 Actualizar Lista", 
+                  command=self.actualizar_lista_reportes).pack(side="left", padx=10)
+        ttk.Button(botones_gestion_frame, text="📂 Abrir Carpeta", 
+                  command=self.abrir_carpeta_reportes).pack(side="left", padx=10)
+        ttk.Button(botones_gestion_frame, text="🗑️ Eliminar Reporte", 
+                  command=self.eliminar_reporte_seleccionado).pack(side="left", padx=10)
+        
+        # Cargar datos iniciales
+        self.actualizar_lista_reportes()
+
+    def generar_lista_insumos_listos(self):
+        """Generar lista de insumos listos usando la lógica de main.py"""
+        try:
+            # Limpiar resultados anteriores
+            self.tree_insumos_listos.delete(*self.tree_insumos_listos.get_children())
+            
+            # Usar la función de main.py
+            lista = generar_lista_envio()
+            
+            if lista.empty:
+                messagebox.showwarning("Sin Resultados", 
+                    "❌ No hay insumos que cumplan con la demanda actual.\n\n"
+                    "Verifique que:\n"
+                    "• Existen pedidos registrados\n"
+                    "• El inventario tiene stock suficiente")
+                return
+            
+            # Mostrar resultados en el Treeview
+            for _, row in lista.iterrows():
+                self.tree_insumos_listos.insert('', 'end', 
+                                               values=(row['producto'], row['cantidad_a_enviar']))
+            
+            messagebox.showinfo("Éxito", 
+                f"✅ Lista generada exitosamente!\n\n"
+                f"📊 Total de productos listos: {len(lista)}\n"
+                f"📦 Productos disponibles para envío")
+            
+            # Guardar lista actual para exportación
+            self.lista_actual = lista
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al generar lista: {str(e)}")
+
+    def exportar_lista_insumos_listos(self):
+        """Exportar lista actual a Excel"""
+        try:
+            if not hasattr(self, 'lista_actual') or self.lista_actual.empty:
+                messagebox.showwarning("Error", "Primero debe generar una lista de insumos")
+                return
+            
+            from datetime import datetime
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            filename = f"data/insumos_listos_{timestamp}.xlsx"
+            
+            # Asegurar que existe el directorio
+            import os
+            os.makedirs(os.path.dirname(filename), exist_ok=True)
+            
+            # Exportar
+            self.lista_actual.to_excel(filename, index=False)
+            
+            messagebox.showinfo("Exportación Exitosa", 
+                f"✅ Lista exportada correctamente!\n\n"
+                f"📁 Archivo: {filename}\n"
+                f"📊 Productos exportados: {len(self.lista_actual)}")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al exportar: {str(e)}")
+
+    def enviar_lista_insumos_email(self):
+        """Enviar lista de insumos por email"""
+        try:
+            if not hasattr(self, 'lista_actual') or self.lista_actual.empty:
+                messagebox.showwarning("Error", "Primero debe generar una lista de insumos")
+                return
+            
+            # Usar la función existente de main.py
+            enviar_lista_insumos()
+            
+            messagebox.showinfo("Email Enviado", 
+                "✅ Lista de insumos enviada por email correctamente!\n\n"
+                "📧 El reporte ha sido enviado al líder de producción\n"
+                "📁 También se ha guardado una copia local")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al enviar email: {str(e)}")
+
+    def filtrar_reportes_por_fecha(self):
+        """Filtrar reportes por rango de fechas"""
+        try:
+            fecha_inicio = self.entry_fecha_inicio.get().strip()
+            fecha_fin = self.entry_fecha_fin.get().strip()
+            
+            if not fecha_inicio or not fecha_fin:
+                messagebox.showwarning("Error", "Por favor ingrese ambas fechas")
+                return
+            
+            # Limpiar resultados anteriores
+            self.tree_reportes_filtrados.delete(*self.tree_reportes_filtrados.get_children())
+            
+            # Cargar archivo de reportes de insumos listos
+            import pandas as pd
+            import os
+            
+            ruta_listos = os.path.join("data", "insumos_listos_general.xlsx")
+            
+            if not os.path.exists(ruta_listos):
+                messagebox.showwarning("Sin Datos", 
+                    "❌ No se encontró el archivo de reportes de insumos listos.\n\n"
+                    f"Archivo esperado: {ruta_listos}")
+                return
+            
+            df = pd.read_excel(ruta_listos)
+            
+            if df.empty:
+                messagebox.showinfo("Sin Datos", "❌ No hay registros de insumos listos.")
+                return
+            
+            # Filtrar por fechas
+            df['fecha'] = pd.to_datetime(df['fecha'])
+            ini_dt = pd.to_datetime(fecha_inicio)
+            fin_dt = pd.to_datetime(fecha_fin)
+            
+            reportes_filtrados = df[(df['fecha'] >= ini_dt) & (df['fecha'] <= fin_dt)]
+            
+            if reportes_filtrados.empty:
+                messagebox.showinfo("Sin Resultados", 
+                    f"🔍 No hay insumos listos en el rango de fechas:\n"
+                    f"Desde: {fecha_inicio}\n"
+                    f"Hasta: {fecha_fin}")
+                return
+            
+            # Mostrar resultados
+            for _, row in reportes_filtrados.iterrows():
+                self.tree_reportes_filtrados.insert('', 'end', 
+                    values=(row.get('id', 'N/A'), 
+                           row['fecha'].strftime('%Y-%m-%d'),
+                           row.get('producto', 'N/A'),
+                           row.get('cantidad', 'N/A'),
+                           row.get('estado', 'Listo')))
+            
+            messagebox.showinfo("Filtrado Exitoso", 
+                f"✅ Filtrado completado!\n\n"
+                f"📊 Reportes encontrados: {len(reportes_filtrados)}\n"
+                f"📅 Período: {fecha_inicio} a {fecha_fin}")
+            
+            # Guardar para uso posterior
+            self.reportes_filtrados = reportes_filtrados
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al filtrar: {str(e)}")
+
+    def ver_detalle_reporte_seleccionado(self):
+        """Ver detalle del reporte seleccionado"""
+        selection = self.tree_reportes_filtrados.selection()
+        if not selection:
+            messagebox.showwarning("Error", "Por favor seleccione un reporte")
+            return
+        
+        item = selection[0]
+        valores = self.tree_reportes_filtrados.item(item, 'values')
+        
+        # Crear ventana de detalle
+        ventana_detalle = self.crear_ventana_secundaria("📋 Detalle del Reporte", "600x400")
+        
+        main_frame = ttk.Frame(ventana_detalle, padding="20")
+        main_frame.pack(fill="both", expand=True)
+        
+        ttk.Label(main_frame, text="Detalle del Reporte de Insumo Listo", 
+                 style='Subtitle.TLabel').pack(pady=10)
+        
+        # Información del reporte
+        info_text = f"""ID del Reporte: {valores[0]}
+Fecha: {valores[1]}
+Producto: {valores[2]}
+Cantidad: {valores[3]}
+Estado: {valores[4]}
+
+Este producto está listo para envío según las 
+especificaciones de demanda y disponibilidad 
+en inventario."""
+        
+        text_widget = tk.Text(main_frame, height=15, wrap=tk.WORD, font=("Arial", 11))
+        text_widget.insert("1.0", info_text)
+        text_widget.config(state='disabled')
+        text_widget.pack(fill="both", expand=True, pady=10)
+        
+        ttk.Button(main_frame, text="✅ Cerrar", 
+                  command=ventana_detalle.destroy).pack(pady=10)
+
+    def descargar_reporte_seleccionado(self):
+        """Descargar reporte seleccionado"""
+        selection = self.tree_reportes_filtrados.selection()
+        if not selection:
+            messagebox.showwarning("Error", "Por favor seleccione un reporte")
+            return
+        
+        try:
+            item = selection[0]
+            valores = self.tree_reportes_filtrados.item(item, 'values')
+            id_reporte = valores[0]
+            
+            if not hasattr(self, 'reportes_filtrados'):
+                messagebox.showwarning("Error", "Primero debe filtrar los reportes")
+                return
+            
+            # Filtrar el reporte específico
+            detalle = self.reportes_filtrados[self.reportes_filtrados['id'].astype(str) == str(id_reporte)].copy()
+            
+            if detalle.empty:
+                messagebox.showwarning("Error", "No se encontró el reporte seleccionado")
+                return
+            
+            # Guardar archivo
+            from datetime import datetime
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            filename = f"data/reporte_insumos_listos_{id_reporte}_{timestamp}.xlsx"
+            
+            import os
+            os.makedirs(os.path.dirname(filename), exist_ok=True)
+            
+            detalle.to_excel(filename, index=False)
+            
+            messagebox.showinfo("Descarga Exitosa", 
+                f"✅ Reporte descargado correctamente!\n\n"
+                f"📁 Archivo: {filename}\n"
+                f"📋 ID del reporte: {id_reporte}")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al descargar: {str(e)}")
+
+    def actualizar_lista_reportes(self):
+        """Actualizar lista de reportes disponibles"""
+        try:
+            import os
+            
+            # Limpiar lista
+            self.listbox_reportes.delete(0, tk.END)
+            
+            carpeta = "data"
+            if not os.path.exists(carpeta):
+                os.makedirs(carpeta)
+                return
+            
+            # Buscar archivos de reportes
+            archivos = [f for f in os.listdir(carpeta) 
+                       if (f.startswith("reporte_insumos_listos_") or f.startswith("insumos_listos")) 
+                       and f.endswith(".xlsx")]
+            
+            if not archivos:
+                self.listbox_reportes.insert(tk.END, "No hay reportes disponibles")
+                return
+            
+            # Agregar archivos a la lista
+            for archivo in sorted(archivos):
+                self.listbox_reportes.insert(tk.END, archivo)
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al actualizar lista: {str(e)}")
+
+    def abrir_carpeta_reportes(self):
+        """Abrir carpeta de reportes en el explorador"""
+        try:
+            import os
+            import subprocess
+            import platform
+            
+            carpeta = os.path.abspath("data")
+            
+            if not os.path.exists(carpeta):
+                os.makedirs(carpeta)
+            
+            # Abrir según el sistema operativo
+            if platform.system() == "Windows":
+                subprocess.Popen(f'explorer "{carpeta}"')
+            elif platform.system() == "Darwin":  # macOS
+                subprocess.Popen(f'open "{carpeta}"', shell=True)
+            else:  # Linux
+                subprocess.Popen(f'xdg-open "{carpeta}"', shell=True)
+                
+            messagebox.showinfo("Carpeta Abierta", 
+                f"📂 Carpeta de reportes abierta:\n{carpeta}")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al abrir carpeta: {str(e)}")
+
+    def eliminar_reporte_seleccionado(self):
+        """Eliminar reporte seleccionado"""
+        selection = self.listbox_reportes.curselection()
+        if not selection:
+            messagebox.showwarning("Error", "Por favor seleccione un reporte para eliminar")
+            return
+        
+        try:
+            archivo = self.listbox_reportes.get(selection[0])
+            
+            if archivo == "No hay reportes disponibles":
+                return
+            
+            if not messagebox.askyesno("Confirmar Eliminación", 
+                f"¿Está seguro de eliminar el reporte?\n\n{archivo}"):
+                return
+            
+            import os
+            ruta_archivo = os.path.join("data", archivo)
+            
+            if os.path.exists(ruta_archivo):
+                os.remove(ruta_archivo)
+                messagebox.showinfo("Eliminado", f"✅ Reporte eliminado: {archivo}")
+                self.actualizar_lista_reportes()
+            else:
+                messagebox.showwarning("Error", "El archivo no existe")
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al eliminar: {str(e)}")
         
     def menu_reportar_defectuosos(self):
         """Menú para reportar insumos defectuosos con desplegables y observaciones"""
