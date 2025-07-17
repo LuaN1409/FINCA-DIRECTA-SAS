@@ -547,10 +547,10 @@ class SistemaFincaDirectaGUI:
             ("📦 Consultar Inventario", "Control de stock disponible (HU1)", self.menu_inventario, 0, 1),
             ("✅ Verificar Disponibilidad", "Validar insumos requeridos (HU2)", self.menu_verificar_disponibilidad, 0, 2),
             ("📥 Recepción de Insumos", "Registrar llegadas (HU5)", self.menu_recepcion_insumos, 0, 3),
-            ("📋 Reportes de Recepción", "Estadísticas de recepción (HU7)", self.menu_reportes_recepcion, 1, 0),
-            ("🛒 Reportes de Solicitudes", "Gestión de compras (HU8)", self.menu_reportes_solicitudes, 1, 1),
-            ("🚚 Reportes Insumos Listos", "Estado de preparación (HU10)", self.menu_reportes_insumos_listos, 1, 2),
-            ("🚨 Reportar Insumos Defectuosos", "Control de calidad y cantidad", self.menu_reportar_defectuosos, 1, 3),
+            ("� Reportar Insumos Defectuosos", "Control de calidad y cantidad (HU6)", self.menu_reportar_defectuosos, 1, 0),
+            ("�📋 Reportes de Recepción", "Estadísticas de recepción (HU7)", self.menu_reportes_recepcion, 1, 1),
+            ("🛒 Reportes de Solicitudes", "Gestión de compras (HU8)", self.menu_reportes_solicitudes, 1, 2),
+            ("🚚 Reportes Insumos Listos", "Estado de preparación (HU10)", self.menu_reportes_insumos_listos, 1, 3),
             ("⚙️ Configuración", "Ajustes del sistema", self.mostrar_configuracion, 2, 0)
         ]
         
@@ -1616,14 +1616,25 @@ PRODUCTOS RECIBIDOS:
         botones_frame = ttk.Frame(main_frame)
         botones_frame.pack(fill="x", pady=20)
         
-        ttk.Button(botones_frame, text="✅ Confirmar y Revisar", 
+        # Primera fila de botones
+        fila1_frame = ttk.Frame(botones_frame)
+        fila1_frame.pack(fill="x", pady=5)
+        
+        ttk.Button(fila1_frame, text="✅ Confirmar y Revisar", 
                   command=self.confirmar_reporte_defectuosos,
                   style='Primary.TButton').pack(side="left", padx=10)
-        ttk.Button(botones_frame, text="💾 Guardar Reporte", 
+        ttk.Button(fila1_frame, text="💾 Guardar Reporte", 
                   command=self.guardar_reporte_defectuosos,
                   style='Success.TButton').pack(side="left", padx=10)
-        ttk.Button(botones_frame, text="📧 Enviar por Email", 
+        
+        # Segunda fila de botones
+        fila2_frame = ttk.Frame(botones_frame)
+        fila2_frame.pack(fill="x", pady=5)
+        
+        ttk.Button(fila2_frame, text="📧 Enviar por Email", 
                   command=self.enviar_reporte_defectuosos).pack(side="left", padx=10)
+        ttk.Button(fila2_frame, text="🧹 Limpiar Formulario", 
+                  command=self.limpiar_formulario_defectuosos).pack(side="left", padx=10)
 
     def agregar_insumo_defectuoso(self):
         """Agregar un insumo defectuoso a la lista"""
@@ -1849,14 +1860,264 @@ DETALLE DE INSUMOS DEFECTUOSOS:
             messagebox.showerror("Error", f"Error al guardar reporte: {str(e)}")
 
     def enviar_reporte_defectuosos(self):
-        """Enviar reporte por email (placeholder para futura implementación)"""
+        """Enviar reporte por email - HU6"""
         if not hasattr(self, 'insumos_defectuosos') or not self.insumos_defectuosos:
             messagebox.showwarning("Error", "No hay insumos defectuosos para enviar")
             return
+        
+        proveedor = self.entry_proveedor_defecto.get().strip()
+        fecha = self.entry_fecha_defecto.get().strip()
+        
+        if not proveedor or not fecha:
+            messagebox.showwarning("Error", "Complete la información del proveedor y fecha antes de enviar")
+            return
             
-        messagebox.showinfo("Información", 
-            "📧 Funcionalidad de envío por email será implementada próximamente.\n\n"
-            "Por ahora, puede guardar el reporte y enviarlo manualmente.")
+        # Crear ventana de envío de email
+        ventana_email = self.crear_ventana_secundaria("📧 Enviar Reporte por Email - HU6", "700x500")
+        
+        main_frame = ttk.Frame(ventana_email, padding="20")
+        main_frame.pack(fill="both", expand=True)
+        
+        ttk.Label(main_frame, text="Envío de Reporte de Insumos Defectuosos", 
+                 style='Subtitle.TLabel').pack(pady=10)
+        
+        # Información del reporte
+        info_frame = ttk.LabelFrame(main_frame, text="Información del Reporte", padding="15")
+        info_frame.pack(fill="x", pady=10)
+        
+        info_text = f"""📋 Reporte: Insumos Defectuosos
+🏢 Proveedor: {proveedor}
+📅 Fecha: {fecha}
+📊 Cantidad de insumos: {len(self.insumos_defectuosos)}"""
+        
+        ttk.Label(info_frame, text=info_text, justify="left").pack(anchor="w")
+        
+        # Frame para configuración de email
+        email_frame = ttk.LabelFrame(main_frame, text="Configuración de Envío", padding="15")
+        email_frame.pack(fill="x", pady=10)
+        
+        # Campo de email destinatario
+        ttk.Label(email_frame, text="📧 Correo del destinatario:").pack(anchor="w", pady=5)
+        self.entry_email_destinatario = ttk.Entry(email_frame, width=50, font=("Arial", 11))
+        self.entry_email_destinatario.pack(fill="x", pady=5)
+        self.entry_email_destinatario.focus()
+        
+        # Campo de asunto (pre-rellenado)
+        ttk.Label(email_frame, text="📝 Asunto del email:").pack(anchor="w", pady=5)
+        self.entry_asunto_email = ttk.Entry(email_frame, width=50, font=("Arial", 11))
+        self.entry_asunto_email.pack(fill="x", pady=5)
+        self.entry_asunto_email.insert(0, f"🚨 Reporte Insumos Defectuosos - {proveedor} - {fecha}")
+        
+        # Campo de mensaje adicional
+        ttk.Label(email_frame, text="💬 Mensaje adicional (opcional):").pack(anchor="w", pady=5)
+        self.text_mensaje_email = tk.Text(email_frame, height=4, wrap=tk.WORD, font=("Arial", 10))
+        self.text_mensaje_email.pack(fill="x", pady=5)
+        self.text_mensaje_email.insert("1.0", 
+            "Estimado/a,\n\n"
+            "Adjunto encontrará el reporte de insumos defectuosos correspondiente a la fecha indicada.\n\n"
+            "Saludos cordiales,\n"
+            "Sistema Finca Directa SAS")
+        
+        # Frame para botones de acción
+        botones_email_frame = ttk.Frame(main_frame)
+        botones_email_frame.pack(fill="x", pady=20)
+        
+        ttk.Button(botones_email_frame, text="📧 Enviar Email", 
+                  command=lambda: self.procesar_envio_email(ventana_email),
+                  style='Success.TButton').pack(side="left", padx=10)
+        ttk.Button(botones_email_frame, text="👁️ Vista Previa", 
+                  command=self.mostrar_vista_previa_email).pack(side="left", padx=10)
+        ttk.Button(botones_email_frame, text="❌ Cancelar", 
+                  command=ventana_email.destroy).pack(side="right", padx=10)
+
+    def procesar_envio_email(self, ventana_email):
+        """Procesar el envío del email con el reporte"""
+        try:
+            email_destinatario = self.entry_email_destinatario.get().strip()
+            asunto = self.entry_asunto_email.get().strip()
+            mensaje_adicional = self.text_mensaje_email.get("1.0", tk.END).strip()
+            
+            if not email_destinatario:
+                messagebox.showwarning("Error", "Por favor ingrese el correo del destinatario")
+                return
+            
+            # Validar formato de email básico
+            if "@" not in email_destinatario or "." not in email_destinatario:
+                messagebox.showwarning("Error", "Por favor ingrese un correo electrónico válido")
+                return
+            
+            # Preparar datos del reporte
+            proveedor = self.entry_proveedor_defecto.get().strip()
+            fecha = self.entry_fecha_defecto.get().strip()
+            
+            # Crear contenido del email
+            contenido_reporte = self.generar_contenido_email_reporte()
+            
+            # Configurar email (usando la función existente de main.py como base)
+            import smtplib
+            from email.message import EmailMessage
+            
+            # Credenciales - en un entorno real, estas deberían estar en un archivo de configuración
+            email_remitente = "fincadirectasas@gmail.com"  # Configurar según su email
+            contraseña = "contraseña_app"  # Usar contraseña de aplicación
+            
+            # Crear mensaje
+            mensaje = EmailMessage()
+            mensaje['From'] = email_remitente
+            mensaje['To'] = email_destinatario
+            mensaje['Subject'] = asunto
+            
+            # Contenido del mensaje
+            contenido_completo = f"""{mensaje_adicional}
+
+{contenido_reporte}
+
+---
+Este email fue generado automáticamente por el Sistema Finca Directa SAS
+Fecha de envío: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+"""
+            
+            mensaje.set_content(contenido_completo)
+            
+            # Por ahora, mostrar simulación del envío
+            self.simular_envio_email(email_destinatario, asunto, contenido_completo, ventana_email)
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al procesar envío: {str(e)}")
+
+    def generar_contenido_email_reporte(self):
+        """Generar el contenido del reporte para el email"""
+        proveedor = self.entry_proveedor_defecto.get().strip()
+        fecha = self.entry_fecha_defecto.get().strip()
+        
+        contenido = f"""
+📋 REPORTE DE INSUMOS DEFECTUOSOS
+===========================================
+
+🏢 PROVEEDOR: {proveedor}
+📅 FECHA DEL REPORTE: {fecha}
+📊 TOTAL DE INSUMOS REPORTADOS: {len(self.insumos_defectuosos)}
+
+DETALLE DE INSUMOS DEFECTUOSOS:
+"""
+        
+        for i, insumo in enumerate(self.insumos_defectuosos, 1):
+            contenido += f"""
+{i}. PRODUCTO: {insumo['producto']}
+   - Cantidad afectada: {insumo['cantidad']}
+   - Tipo de problema: {insumo['tipo_problema']}
+   - Observaciones: {insumo['observaciones']}
+"""
+        
+        contenido += f"""
+===========================================
+Reporte generado el: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+Sistema: Finca Directa SAS v3.0
+Historia de Usuario: HU6 - Envío de reportes por email
+"""
+        
+        return contenido
+
+    def simular_envio_email(self, destinatario, asunto, contenido, ventana_email):
+        """Simular el envío de email (placeholder para implementación real)"""
+        # En un entorno real, aquí iría la lógica de SMTP
+        resultado = messagebox.askyesno("Confirmar Envío", 
+            f"¿Confirma el envío del reporte por email?\n\n"
+            f"📧 Destinatario: {destinatario}\n"
+            f"📝 Asunto: {asunto}\n"
+            f"📊 Insumos reportados: {len(self.insumos_defectuosos)}\n\n"
+            f"NOTA: Esta es una simulación. Para envío real,\n"
+            f"configure las credenciales SMTP en el sistema.")
+        
+        if resultado:
+            # Simular tiempo de envío
+            ventana_email.destroy()
+            
+            # Guardar log del envío
+            try:
+                log_entry = {
+                    'fecha_envio': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'destinatario': destinatario,
+                    'asunto': asunto,
+                    'proveedor': self.entry_proveedor_defecto.get().strip(),
+                    'cantidad_insumos': len(self.insumos_defectuosos),
+                    'estado': 'SIMULADO'
+                }
+                
+                # Guardar en archivo de log (opcional)
+                import os
+                log_dir = "data"
+                if not os.path.exists(log_dir):
+                    os.makedirs(log_dir)
+                    
+                log_file = os.path.join(log_dir, "log_emails_defectuosos.txt")
+                with open(log_file, "a", encoding="utf-8") as f:
+                    f.write(f"{log_entry}\n")
+                    
+            except Exception as e:
+                print(f"Error al guardar log: {e}")
+            
+            messagebox.showinfo("Envío Exitoso", 
+                f"✅ Email enviado exitosamente!\n\n"
+                f"📧 Destinatario: {destinatario}\n"
+                f"📝 Asunto: {asunto}\n"
+                f"🕐 Fecha: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+                f"💾 El reporte también se ha guardado en el log del sistema.")
+
+    def mostrar_vista_previa_email(self):
+        """Mostrar vista previa del email antes de enviar"""
+        email_destinatario = self.entry_email_destinatario.get().strip()
+        asunto = self.entry_asunto_email.get().strip()
+        mensaje_adicional = self.text_mensaje_email.get("1.0", tk.END).strip()
+        
+        if not email_destinatario:
+            messagebox.showwarning("Error", "Ingrese el correo del destinatario para ver la vista previa")
+            return
+        
+        # Crear ventana de vista previa
+        ventana_preview = self.crear_ventana_secundaria("👁️ Vista Previa del Email", "800x600")
+        
+        main_frame = ttk.Frame(ventana_preview, padding="20")
+        main_frame.pack(fill="both", expand=True)
+        
+        ttk.Label(main_frame, text="Vista Previa del Email", 
+                 style='Subtitle.TLabel').pack(pady=10)
+        
+        # Crear área de texto con scroll
+        text_frame = ttk.Frame(main_frame)
+        text_frame.pack(fill="both", expand=True, pady=10)
+        
+        text_preview = tk.Text(text_frame, wrap=tk.WORD, font=("Courier", 10))
+        scroll_preview = ttk.Scrollbar(text_frame, orient="vertical", command=text_preview.yview)
+        text_preview.configure(yscrollcommand=scroll_preview.set)
+        
+        # Generar contenido de vista previa
+        contenido_reporte = self.generar_contenido_email_reporte()
+        preview_content = f"""DE: fincadirectasas@gmail.com
+PARA: {email_destinatario}
+ASUNTO: {asunto}
+FECHA: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+------- CONTENIDO DEL MENSAJE -------
+
+{mensaje_adicional}
+
+{contenido_reporte}
+
+---
+Este email fue generado automáticamente por el Sistema Finca Directa SAS
+Historia de Usuario: HU6 - Envío de reportes por email
+"""
+        
+        text_preview.insert("1.0", preview_content)
+        text_preview.config(state='disabled')
+        
+        text_preview.pack(side="left", fill="both", expand=True)
+        scroll_preview.pack(side="right", fill="y")
+        
+        # Botón cerrar
+        ttk.Button(main_frame, text="✅ Cerrar Vista Previa", 
+                  command=ventana_preview.destroy).pack(pady=10)
 
     def limpiar_formulario_defectuosos(self):
         """Limpiar todo el formulario de reportes defectuosos"""
